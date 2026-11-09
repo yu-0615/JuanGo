@@ -34,7 +34,7 @@ struct ImportTab: View {
                     suggestionList
                 } else {
                     sourceTiles
-                    Text("最近新增").font(.system(.title3, design: .serif).weight(.bold)).padding(.top, 6)
+                    Text("最近新增").font(.system(.title3).weight(.bold)).padding(.top, 6)
                     recentList
                 }
                 if let toast {
@@ -43,7 +43,7 @@ struct ImportTab: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
-            .overlay { if busy { ProgressView("正在辨識文字…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: 20)) } }
+            .overlay { if busy { ProgressView("正在辨識文字…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: Radius.lg)) } }
             .navigationTitle("新增")
             .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
             .themedBackground()
@@ -105,13 +105,13 @@ struct ImportTab: View {
                 }
                 Button(action: submit) {
                     LIcon("arrow.right").font(.headline).foregroundStyle(Color.onAccent)
-                        .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: 10).fill(Color.themeAccent))
+                        .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent))
                 }
                 .disabled(query.isEmpty).opacity(query.isEmpty ? 0.4 : 1)
             }
             .padding(.leading, 14).padding(.trailing, 8).frame(height: 54)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.cardFill))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
+            .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+            .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
             Menu {
                 Button { destination = nil } label: { Label("我的單字", pulso: destination == nil ? "checkmark" : "character.book.closed") }
                 ForEach(lists) { l in
@@ -142,7 +142,7 @@ struct ImportTab: View {
         Button(action: action) {
             VStack(spacing: 10) {
                 LIcon(icon).font(.title2.weight(.semibold)).foregroundStyle(.tint)
-                    .frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: 12).fill(Color.themeAccent.opacity(0.1)))
+                    .frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.1)))
                 Text(t).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
             }
             .frame(maxWidth: .infinity)
@@ -181,8 +181,8 @@ struct ImportTab: View {
             .padding(.horizontal, 16)
         }
         .frame(maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.hairline))
+        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
     }
 
     /// Recently added words as a wrap of small chips; long-press to delete.
@@ -203,8 +203,8 @@ struct ImportTab: View {
                                 Text(w.primaryMeaning).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.cardFill))
-                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.hairline))
+                            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
+                            .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
                         }
                         .buttonStyle(.plain)
                         .contextMenu {

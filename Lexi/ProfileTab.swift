@@ -35,12 +35,12 @@ struct ProfileTab: View {
     private var streakCard: some View {
         HStack(spacing: 16) {
             LIcon("flame.fill").font(.system(size: 40))
-                .foregroundStyle(LinearGradient(colors: [.ember, .themeAccent], startPoint: .top, endPoint: .bottom))
+                .foregroundStyle(Color.themeAccent)
                 .frame(width: 64, height: 64)
-                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.ember.opacity(0.14)))
+                .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(stats.streak)").font(.system(size: 40, weight: .bold, design: .serif))
+                    Text("\(stats.streak)").font(.system(size: 40, weight: .bold))
                     Text("天連續學習").font(.headline)
                 }
                 Text(stats.studiedToday > 0 ? "今天已經練過了，明天見！" : "今天還沒練習，別讓火熄掉。")
@@ -67,7 +67,7 @@ struct ProfileTab: View {
     private func statTile(_ title: String, _ n: Int, _ icon: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             LIcon(icon).font(.headline).foregroundStyle(.tint)
-            Text("\(n)").font(.system(.title, design: .serif).weight(.bold)).contentTransition(.numericText())
+            Text("\(n)").font(.system(.title).weight(.bold)).contentTransition(.numericText())
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -86,7 +86,7 @@ struct ProfileTab: View {
         let chosen = selectedDay ?? today
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("學習日曆").font(.system(.headline, design: .serif).weight(.bold))
+                Text("學習日曆").font(.system(.headline).weight(.bold))
                 Spacer()
                 Text("近 5 週・\(counts.filter { $0 > 0 }.count) 天有練習").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
@@ -101,10 +101,10 @@ struct ProfileTab: View {
                         ForEach(0..<7, id: \.self) { wd in
                             let k = week * 7 + wd, d = days[k], n = counts[k], future = d > today
                             Button { selectedDay = d } label: {
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                                     .fill(future ? Color.clear : n == 0 ? Color.secondary.opacity(0.10) : Color.themeAccent.opacity(0.25 + 0.75 * Double(n) / Double(top)))
                                     .aspectRatio(1, contentMode: .fit)
-                                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .overlay(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                                         .strokeBorder(cal.isDate(d, inSameDayAs: chosen) ? Color.primary : (future ? Color.hairline : .clear), lineWidth: 1.5))
                                     .overlay {
                                         Text(d.formatted(.dateTime.day())).font(.system(size: 10, weight: .semibold))
@@ -132,7 +132,7 @@ struct ProfileTab: View {
         let earned = BadgeKind.all.map { $0.earned(for: BadgeKind.value($0.id, stats: stats)) }.reduce(0, +)
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("成就").font(.system(.headline, design: .serif).weight(.bold))
+                Text("成就").font(.system(.headline).weight(.bold))
                 Spacer()
                 Text("已解鎖 \(earned) 枚").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
@@ -243,7 +243,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) { Text(title).font(.headline); Text(sub).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
         } icon: {
             LIcon(icon).font(.subheadline.weight(.semibold)).foregroundStyle(Color.onAccent)
-                .frame(width: 30, height: 30).background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.themeAccent))
+                .frame(width: 30, height: 30).background(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous).fill(Color.themeAccent))
         }
         .padding(.vertical, 4)
     }

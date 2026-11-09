@@ -92,7 +92,7 @@ struct Chip: View {
     var body: some View {
         Text(text).font(.subheadline.weight(.semibold))
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
 }
 
@@ -111,7 +111,7 @@ struct Toast: View {
             Button(action: onClose) { LIcon("xmark").font(.subheadline.bold()) }.buttonStyle(.plain)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
@@ -143,9 +143,9 @@ struct WordConfirmSheet: View {
                 Text("確認單字").font(.headline)
                 Spacer()
                 Button { dismiss() } label: { GlassCircleIcon(systemName: "xmark") }
-                    .buttonStyle(.glass).buttonBorderShape(.roundedRectangle(radius: 12))
+                    .buttonStyle(.glass).buttonBorderShape(.circle)
             }
-            Text(entry?.w ?? term).font(.system(size: 40, weight: .heavy)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(entry?.w ?? term).font(.system(size: 40, weight: .semibold)).minimumScaleFactor(0.5).lineLimit(1)
             HStack(spacing: 10) {
                 if let ipa = entry?.ipa, !ipa.isEmpty { Text("[\(ipa)]").foregroundStyle(.secondary) }
                 SpeakButton(text: entry?.w ?? term)
@@ -154,7 +154,7 @@ struct WordConfirmSheet: View {
             Spacer(minLength: 0)
             if let saved, saved.inMyWords {
                 Button { removeFromMyWords(saved) } label: { Text("取消加入") }
-                    .buttonStyle(PillButtonStyle(fill: .secondary.opacity(0.35), foreground: .white))
+                    .buttonStyle(PillButtonStyle())
             } else {
                 Button { add(myWords: true) } label: { Text(destination.map { "加入「\($0.name)」" } ?? "加入我的單字") }
                     .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
@@ -370,7 +370,7 @@ struct MasteryCard: View {
         let top = max(1, distribution.max() ?? 1)
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("熟練階梯").font(.system(.headline, design: .serif).weight(.bold))
+                Text("熟練階梯").font(.system(.headline).weight(.bold))
                 Spacer()
                 Button { showInfo = true } label: { LIcon("questionmark.circle") }.foregroundStyle(.secondary)
             }
@@ -378,7 +378,7 @@ struct MasteryCard: View {
                 ForEach(0..<6, id: \.self) { i in
                     VStack(spacing: 6) {
                         Text("\(distribution[i])").font(.caption.weight(.bold)).monospacedDigit()
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                             .fill(i == 0 ? Color.secondary.opacity(0.18) : Color.themeAccent.opacity(0.25 + Double(i) * 0.15))
                             .frame(height: 8 + 62 * CGFloat(distribution[i]) / CGFloat(top))
                         Text(levelNames[i]).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -423,7 +423,7 @@ struct BadgeMedal: View {
         let earned = tier > 0
         VStack(spacing: 6) {
             ZStack {
-                Hexagon().fill(earned ? AnyShapeStyle(LinearGradient(colors: [.ember, .themeAccent], startPoint: .top, endPoint: .bottom))
+                Hexagon().fill(earned ? AnyShapeStyle(Color.themeAccent)
                                       : AnyShapeStyle(Color.secondary.opacity(0.14)))
                 Hexagon().inset(size * 0.09).stroke(earned ? Color.white.opacity(0.55) : Color.secondary.opacity(0.25),
                                                      style: StrokeStyle(lineWidth: 1.5, dash: earned ? [] : [3, 3]))
@@ -433,7 +433,7 @@ struct BadgeMedal: View {
             .frame(width: size, height: size)
             HStack(spacing: 3) {
                 ForEach(0..<kind.tiers.count, id: \.self) { i in
-                    Capsule().fill(i < tier ? Color.ember : Color.secondary.opacity(0.25)).frame(width: 8, height: 3)
+                    Capsule().fill(i < tier ? Color.themeAccent : Color.secondary.opacity(0.25)).frame(width: 8, height: 3)
                 }
             }
             Text(kind.title).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
@@ -465,7 +465,7 @@ struct ScoreRing: View {
     @State private var shown = false
     var body: some View {
         let total = max(1, good + unsure + again)
-        let parts: [(Double, Color)] = [(Double(good), .green.opacity(0.75)), (Double(unsure), .ember), (Double(again), .themeAccent)]
+        let parts: [(Double, Color)] = [(Double(good), .green.opacity(0.75)), (Double(unsure), .orange), (Double(again), .themeAccent)]
         ZStack {
             Circle().stroke(Color.secondary.opacity(0.12), lineWidth: 16)
             ForEach(0..<3, id: \.self) { k in
@@ -476,7 +476,7 @@ struct ScoreRing: View {
                     .rotationEffect(.degrees(-90))
             }
             VStack(spacing: 0) {
-                Text("\(Int((Double(good) / Double(total) * 100).rounded()))%").font(.system(size: 40, weight: .bold, design: .serif))
+                Text("\(Int((Double(good) / Double(total) * 100).rounded()))%").font(.system(size: 40, weight: .bold))
                 Text("一次就會").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
         }

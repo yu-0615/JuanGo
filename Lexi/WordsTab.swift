@@ -31,8 +31,8 @@ struct WordsTab: View {
                             Text(t).font(.subheadline.weight(.bold))
                                 .foregroundStyle(segment == k ? Color.onAccent : .primary)
                                 .padding(.horizontal, 14).frame(height: 34)
-                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(segment == k ? Color.themeAccent : Color.cardFill))
-                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(segment == k ? .clear : Color.hairline))
+                                .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(segment == k ? Color.themeAccent : Color.cardFill))
+                                .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(segment == k ? .clear : Color.hairline))
                         }
                         .buttonStyle(.plain)
                     }
@@ -127,8 +127,8 @@ struct WordsTab: View {
                 }
             }
             .padding(.horizontal, 14).frame(height: 46)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.cardFill))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.hairline))
+            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
+            .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
             .padding(.horizontal, 20)
 
             if words.isEmpty {
@@ -142,7 +142,7 @@ struct WordsTab: View {
                             Section {
                                 ForEach(groups[day]!.sorted { sort == .newest ? $0.addedAt > $1.addedAt : $0.addedAt < $1.addedAt }) { row($0) }
                             } header: {
-                                Text(dayLabel(day)).font(.system(.subheadline, design: .serif).weight(.bold)).foregroundStyle(.primary).textCase(nil)
+                                Text(dayLabel(day)).font(.system(.subheadline).weight(.bold)).foregroundStyle(.primary).textCase(nil)
                             }
                         }
                     } else {
@@ -170,7 +170,7 @@ struct WordsTab: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(w.term).font(.system(.headline, design: .serif).weight(.bold))
+                Text(w.term).font(.system(.headline).weight(.bold))
                 if AppSettings.shared.listShowMeaning {
                     Text(w.meaningLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -352,7 +352,7 @@ struct WordDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 // Dictionary-style header: headword, pronunciation, tags, then numbered meanings.
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(word.term).font(.system(size: 42, weight: .bold, design: .serif)).minimumScaleFactor(0.5).lineLimit(1)
+                    Text(word.term).font(.system(size: 42, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
                     HStack(spacing: 8) {
                         SpeakButton(text: word.term)
                         if !word.ipa.isEmpty { Text("/\(word.ipa)/").foregroundStyle(.secondary) }
@@ -375,7 +375,7 @@ struct WordDetailView: View {
                 if !word.example.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("例句").font(.system(.subheadline, design: .serif).weight(.bold))
+                            Text("例句").font(.system(.subheadline).weight(.bold))
                             Spacer()
                             Button { withAnimation { showTranslation.toggle() } } label: {
                                 Label("翻譯", pulso: showTranslation ? "chevron.up" : "chevron.down").font(.caption.bold())
@@ -449,7 +449,7 @@ struct WordDetailView: View {
     /// Related words as a wrap of tappable chips; the + adds one straight to 我的單字.
     private func wordGrid(_ title: String, _ entries: [DictEntry]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(.subheadline, design: .serif).weight(.bold))
+            Text(title).font(.system(.subheadline).weight(.bold))
             FlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(entries) { e in
                     HStack(spacing: 8) {
@@ -461,8 +461,8 @@ struct WordDetailView: View {
                             .buttonStyle(.plain).foregroundStyle(.tint)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.cardFill))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.hairline))
+                    .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
                     .onTapGesture { lookup = LookupTerm(term: e.w) }
                 }
             }
@@ -472,7 +472,7 @@ struct WordDetailView: View {
 
     private func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(.subheadline, design: .serif).weight(.bold))
+            Text(title).font(.system(.subheadline).weight(.bold))
             content().card()
         }
     }
@@ -480,6 +480,6 @@ struct WordDetailView: View {
     private func detailTag(_ t: String) -> some View {
         Text(t).font(.caption.weight(.bold)).foregroundStyle(.tint)
             .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.themeAccent.opacity(0.1)))
+            .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.1)))
     }
 }

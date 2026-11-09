@@ -331,13 +331,11 @@ struct AppTheme: Identifiable, Hashable {
             return t.userInterfaceStyle == .dark ? base.mix(with: .white, by: 0.38) : base
         })
     }
-    /// Lexi's pages sit on warm "paper": a tinted cream in light mode, a warm charcoal in dark mode.
-    var background: Color {
-        Color(UIColor { t in
-            t.userInterfaceStyle == .dark ? UIColor(Color(hex: 0x17130F)).mix(with: UIColor(Color(hex: accentHex)), by: 0.08)
-                                          : UIColor(Color(hex: bgHex))
-        })
-    }
+    /// Swatch paper colour, only used to preview the theme in the theme picker.
+    var swatch: Color { Color(hex: bgHex) }
+    /// Pages sit on the native grouped background (DESIGN.md "parchment" in light mode, black in dark mode);
+    /// a theme only changes the single accent colour.
+    var background: Color { Color(.systemGroupedBackground) }
 
     /// Lexi's own palette, built around the phoenix-red logo.
     static let all: [AppTheme] = [
@@ -347,6 +345,7 @@ struct AppTheme: Identifiable, Hashable {
         .init(id: "ink", name: "墨藍", accentHex: 0x24407A, bgHex: 0xF1F1F0),
         .init(id: "plum", name: "梅子", accentHex: 0x7A2C5C, bgHex: 0xF7EFF0),
         .init(id: "graphite", name: "石墨", accentHex: 0x3B3A38, bgHex: 0xF4F2EE),
+        .init(id: "action", name: "天空藍", accentHex: 0x0066CC, bgHex: 0xF5F5F7),
     ]
 }
 
@@ -363,70 +362,81 @@ extension Color {
     init(hex: UInt32) {
         self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
     }
-    static let cardFill = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.06) : UIColor(white: 1, alpha: 1) })
-    /// Hairline used around Lexi's cards instead of soft shadows.
-    static let hairline = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.10) : UIColor(red: 0.42, green: 0.30, blue: 0.20, alpha: 0.12) })
-    /// Second brand colour (the phoenix's flame): streaks, achievements, highlights.
-    static let ember = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.98, green: 0.72, blue: 0.36, alpha: 1) : UIColor(red: 0.89, green: 0.57, blue: 0.14, alpha: 1) })
+    /// Native card surface: white on the parchment background, near-black tile in dark mode.
+    static let cardFill = Color(.secondarySystemGroupedBackground)
+    /// DESIGN.md "soft hairline": 1 px at 8 % around utility cards, never a shadow.
+    static let hairline = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.08) : UIColor(white: 0, alpha: 0.08) })
     static let knowGreen = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.33, blue: 0.25, alpha: 1) : UIColor(red: 0.84, green: 0.92, blue: 0.86, alpha: 1) })
     static let unsureYellow = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.38, green: 0.29, blue: 0.13, alpha: 1) : UIColor(red: 0.98, green: 0.90, blue: 0.74, alpha: 1) })
     static let againPink = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.40, green: 0.16, blue: 0.18, alpha: 1) : UIColor(red: 0.97, green: 0.85, blue: 0.84, alpha: 1) })
 }
 
+/// DESIGN.md radius grammar: compact utility 8, the rare pearl button 11, cards and tiles 18; actions are pills.
+enum Radius {
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 11
+    static let lg: CGFloat = 18
+}
+
 struct CardBackground: ViewModifier {
     var padding: CGFloat = 18
-    var radius: CGFloat = 16
+    var radius: CGFloat = Radius.lg
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content.padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.cardFill))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.hairline, lineWidth: 1))
+            .background(Color.cardFill, in: shape)
+            .overlay(shape.strokeBorder(Color.hairline, lineWidth: 1))
+            .containerShape(shape)   // nested ConcentricRectangle shapes follow this card's corners
     }
 }
 
 extension View {
-    func card(padding: CGFloat = 18, radius: CGFloat = 16) -> some View { modifier(CardBackground(padding: padding, radius: radius)) }
+    func card(padding: CGFloat = 18, radius: CGFloat = Radius.lg) -> some View { modifier(CardBackground(padding: padding, radius: radius)) }
 }
 
-/// Lexi's button: a rounded rectangle (never a capsule), at least 44 pt tall as the HIG asks.
-/// `glass: true` is for the main action on a screen: an iOS 26 Liquid Glass button tinted with the theme colour.
-struct PillButtonStyle: ButtonStyle {
-    var fill: Color = .cardFill
-    var foreground: Color = .primary
-    var height: CGFloat = 52
-    var radius: CGFloat = 14
+/// Lexi's buttons are native iOS 26 buttons, not hand-drawn shapes (DESIGN.md: the pill is the action signal).
+/// - `glass: true` or a `fill`: Liquid Glass prominent button tinted with that colour (the main action, the answer buttons).
+/// - otherwise: a plain Liquid Glass button for secondary actions.
+/// Buttons up to 56 pt tall are pills; taller ones are 18 pt tiles (`Radius.lg`).
+struct PillButtonStyle: PrimitiveButtonStyle {
+    var fill: Color? = nil
+    var foreground: Color? = nil
+    var height: CGFloat = 50
     var glass = false
 
     func makeBody(configuration: Configuration) -> some View {
-        PillButtonBody(configuration: configuration, style: self)
+        let button = Button(role: configuration.role, action: configuration.trigger) {
+            configuration.label
+                .font(.headline)
+                .foregroundStyle(foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+                .frame(minHeight: max(44, height) - 30)
+        }
+        Group {
+            if glass || fill != nil {
+                button.buttonStyle(.glassProminent).tint(fill ?? .themeAccent)
+            } else {
+                button.buttonStyle(.glass)
+            }
+        }
+        .buttonBorderShape(height > 56 ? .roundedRectangle(radius: Radius.lg) : .capsule)
+        .buttonSizing(.flexible)
+        .controlSize(.large)
     }
 }
 
-private struct PillButtonBody: View {
-    let configuration: ButtonStyleConfiguration
-    let style: PillButtonStyle
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: style.radius, style: .continuous)
-        let label = configuration.label
-            .font(.headline)
-            .foregroundStyle(style.foreground)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: max(44, style.height))
-            .contentShape(shape)
-        Group {
-            if style.glass {
-                label.glassEffect(.regular.tint(style.fill).interactive(), in: shape)
-            } else {
-                label.background(shape.fill(style.fill))
-                    .overlay(shape.strokeBorder(Color.hairline, lineWidth: 1))
-            }
+/// A selectable tile (goal, font, question type): native glass, prominent and tinted when selected.
+struct ChoiceTileStyle: PrimitiveButtonStyle {
+    var selected: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        let button = Button(role: configuration.role, action: configuration.trigger) {
+            configuration.label.foregroundStyle(selected ? Color.onAccent : Color.primary)
         }
-        .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
-        .scaleEffect(configuration.isPressed ? 0.97 : 1)
-        .animation(.spring(duration: 0.25, bounce: 0.3), value: configuration.isPressed)
-        .hoverEffect(.highlight)
+        Group {
+            if selected { button.buttonStyle(.glassProminent).tint(.themeAccent) } else { button.buttonStyle(.glass) }
+        }
+        .buttonBorderShape(.roundedRectangle(radius: Radius.lg))
+        .buttonSizing(.flexible)
     }
 }
 

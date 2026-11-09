@@ -5,16 +5,6 @@ import SwiftData
 struct LexiApp: App {
     @State private var settings = AppSettings.shared
 
-    init() {
-        // Lexi's page titles use the serif (New York) face: an editorial, dictionary-like look.
-        let serif = { (size: CGFloat, weight: UIFont.Weight) -> UIFont in
-            let base = UIFont.systemFont(ofSize: size, weight: weight)
-            return UIFont(descriptor: base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor, size: size)
-        }
-        UINavigationBar.appearance().largeTitleTextAttributes = [.font: serif(36, .bold)]
-        UINavigationBar.appearance().titleTextAttributes = [.font: serif(17, .semibold)]
-    }
-
     var body: some Scene {
         WindowGroup {
             RootView()

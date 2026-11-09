@@ -403,7 +403,7 @@ struct ScanView: View {
             if let feedback {
                 Text(feedback).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
                     .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.black.opacity(0.7)))
+                    .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(.black.opacity(0.7)))
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -423,11 +423,11 @@ struct ScanView: View {
         HStack(spacing: 0) {
             Button { moveMode = false } label: {
                 Label("圈選", pulso: "lasso").padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(moveMode ? Color.clear : Color.themeAccent))
+                    .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(moveMode ? Color.clear : Color.themeAccent))
             }
             Button { moveMode = true } label: {
                 Label("移動", pulso: "hand.draw").padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(moveMode ? Color.themeAccent : Color.clear))
+                    .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(moveMode ? Color.themeAccent : Color.clear))
             }
             if zoom > 1 {
                 Button {
@@ -438,7 +438,7 @@ struct ScanView: View {
         .font(.caption.bold())
         .foregroundStyle(.white)
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.black.opacity(0.65)))
+        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(.black.opacity(0.65)))
         .padding(10)
     }
 
@@ -503,7 +503,7 @@ struct ScanView: View {
                 }
             }
             .padding(.horizontal, 14).padding(.vertical, 11)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.cardFill))
+            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
 
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
@@ -512,7 +512,7 @@ struct ScanView: View {
                         Button(ex) { instruction = ex; run() }
                             .font(.footnote.weight(.semibold))
                             .padding(.horizontal, 12).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.primary.opacity(0.07)))
+                            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.primary.opacity(0.07)))
                     }
                 }
             }
@@ -531,7 +531,7 @@ struct ScanView: View {
                 Button(selected.isEmpty ? "選取黃框" : "看清單") {
                     if selected.isEmpty { selected = matchKeys; flash("已選取 \(matchKeys.count) 個字") } else { showList = true }
                 }
-                .buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 14))
+                .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
                 .disabled(selected.isEmpty && matchKeys.isEmpty)
             }
         }
@@ -558,7 +558,7 @@ struct ScanView: View {
             Label(filter.summary, pulso: "line.3.horizontal.decrease.circle.fill")
                 .font(.footnote.weight(.semibold))
                 .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.themeAccent.opacity(0.18)))
+                .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.themeAccent.opacity(0.18)))
         }
         .onChange(of: filter.minLevel) { _, v in if filter.maxLevel < v { filter.maxLevel = v } }
         .onChange(of: filter.maxLevel) { _, v in if filter.minLevel > v { filter.minLevel = v } }

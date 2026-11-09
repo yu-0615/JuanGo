@@ -87,7 +87,7 @@ struct ExploreTab: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(deck.rawValue).font(.system(.headline, design: .serif).weight(.bold))
+                Text(deck.rawValue).font(.system(.headline).weight(.bold))
                 LIcon("chevron.up.chevron.down").font(.caption.bold()).foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
@@ -125,12 +125,12 @@ struct ExploreTab: View {
             }
             Spacer()
             Button(tipStep == 0 ? "略過" : "完成") { withAnimation { settings.exploreTipsDone = true } }
-                .buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 14))
+                .buttonStyle(.borderedProminent).buttonBorderShape(.capsule)
         }
         .foregroundStyle(Color.onAccent)
         .tint(Color.onAccent.opacity(0.25))
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.themeAccent))
+        .background(RoundedRectangle(cornerRadius: Radius.lg).fill(Color.themeAccent))
         .padding(.horizontal, 18).padding(.top, 6)
         .transition(.move(edge: .top).combined(with: .opacity))
     }
@@ -184,7 +184,7 @@ struct ExploreCard: View {
                 if isSaved { Label("已收藏", pulso: "bookmark.fill").font(.caption.weight(.bold)).foregroundStyle(.tint) }
             }
             Spacer(minLength: 0)
-            Text(entry.w).font(.system(size: 44, weight: .bold, design: .serif)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(entry.w).font(.system(size: 44, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
             HStack(spacing: 8) {
                 SpeakButton(text: entry.w)
                 if settings.exploreShowIPA && !entry.ipa.isEmpty { Text("/\(entry.ipa)/").foregroundStyle(.secondary) }
@@ -212,22 +212,22 @@ struct ExploreCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.themeAccent.opacity(0.06)))
+            .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
             .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
             Spacer(minLength: 0)
             HStack(spacing: 10) {
                 Button(action: onList) { LIcon("folder.badge.plus").font(.title3) }
-                    .buttonStyle(PillButtonStyle(fill: .themeAccent.opacity(0.1), foreground: .themeAccent, height: 52))
+                    .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 52))
                     .frame(width: 64)
                 Button(action: onToggle) {
                     Label(isSaved ? "從我的單字移除" : "收進我的單字", pulso: isSaved ? "bookmark.slash" : "bookmark.fill")
                 }
-                .buttonStyle(PillButtonStyle(fill: isSaved ? .secondary.opacity(0.15) : .themeAccent, foreground: isSaved ? .primary : .onAccent, height: 52))
+                .buttonStyle(PillButtonStyle(fill: isSaved ? nil : .themeAccent, foreground: isSaved ? nil : .onAccent, height: 52))
             }
         }
         .padding(22)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hairline))
+        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
         .overlay {
             LIcon("bookmark.fill").font(.system(size: 80)).foregroundStyle(Color.themeAccent)
                 .scaleEffect(pop ? 1.1 : 0.4).opacity(pop ? 0.9 : 0)
@@ -246,6 +246,6 @@ struct ExploreCard: View {
         Text(t).font(.caption.weight(.bold))
             .foregroundStyle(filled ? Color.onAccent : Color.themeAccent)
             .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(filled ? Color.themeAccent : Color.themeAccent.opacity(0.1)))
+            .background(RoundedRectangle(cornerRadius: Radius.sm).fill(filled ? Color.themeAccent : Color.themeAccent.opacity(0.1)))
     }
 }

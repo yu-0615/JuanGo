@@ -30,13 +30,17 @@ struct OnboardingView: View {
             PageDots(count: 5, index: page).padding(.vertical, 14)
         }
         .animation(.spring(duration: 0.45), value: page)
+        #if DEBUG
+        // Debug hook: `SIMCTL_CHILD_LEXI_ONBOARD=3` opens onboarding on that page.
+        .task { if let p = Int(ProcessInfo.processInfo.environment["LEXI_ONBOARD"] ?? ""), (0...4).contains(p) { page = p } }
+        #endif
         .alert("目前只支援繁體中文解釋", isPresented: $unsupportedLanguage) { Button("好") {} } message: {
             Text("其他語言的解釋會在之後的版本加入。")
         }
         .sheet(isPresented: $customGoal) {
             VStack(spacing: 20) {
                 Text("自訂每日新字").font(.title2.bold())
-                Text("\(settings.dailyGoal) 個 / 天").font(.system(size: 44, weight: .heavy)).contentTransition(.numericText())
+                Text("\(settings.dailyGoal) 個 / 天").font(.system(size: 44, weight: .semibold)).contentTransition(.numericText())
                 Stepper("", value: $settings.dailyGoal, in: 1...100).labelsHidden()
                 Button("完成") { customGoal = false }.buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
             }
@@ -57,7 +61,7 @@ struct OnboardingView: View {
                     } label: {
                         HStack { Text(name); if on { LIcon("checkmark") } }
                     }
-                    .buttonStyle(PillButtonStyle(fill: on ? .themeAccent.opacity(0.55) : .cardFill))
+                    .buttonStyle(PillButtonStyle(fill: on ? .themeAccent : nil, foreground: on ? .onAccent : nil))
             }
             .padding(.horizontal, 20)
         }
@@ -67,7 +71,7 @@ struct OnboardingView: View {
         VStack(spacing: 18) {
             if let w = test.current {
                 Text("\(test.index + 1) / \(test.words.count)").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                Text(w.w).font(.system(size: 40, weight: .heavy)).id(w.w)
+                Text(w.w).font(.system(size: 40, weight: .semibold)).id(w.w)
                     .transition(.push(from: .trailing))
                 Text(test.revealed ? w.zh.prefix(2).joined(separator: " · ") : " ")
                     .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
@@ -88,7 +92,7 @@ struct OnboardingView: View {
     private var resultPage: some View {
         VStack(spacing: 14) {
             Text("你的推定程度").font(.title2.bold())
-            Text(levelLabel(test.estimate)).font(.system(size: 72, weight: .black))
+            Text(levelLabel(test.estimate)).font(.system(size: 72, weight: .semibold))
             Text(LevelTest.blurb(test.estimate)).font(.headline)
             Text("會從接近你程度的單字開始。").font(.subheadline).foregroundStyle(.secondary)
             if !test.didAdvanced {
@@ -113,15 +117,14 @@ struct OnboardingView: View {
                         VStack(spacing: 4) {
                             Text(name).font(.headline)
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text("\(n)").font(.system(size: 30, weight: .heavy))
+                                Text("\(n)").font(.system(size: 30, weight: .semibold))
                                 Text("個 / 天").font(.caption)
                             }
                             Text(sub).font(.caption2)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 110)
-                        .foregroundStyle(on ? Color.white : .primary)
-                        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(on ? Color.primary : Color.cardFill))
-                    }.buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, minHeight: 96)
+                    }
+                    .buttonStyle(ChoiceTileStyle(selected: on))
                 }
             }
             .padding(.horizontal, 20)
@@ -133,7 +136,7 @@ struct OnboardingView: View {
                     DatePicker("提醒時間", selection: $settings.reminderDate, displayedComponents: .hourAndMinute)
                 }
             }
-            .card(padding: 16, radius: 26)
+            .card(padding: 16)
             .padding(.horizontal, 20)
         }
     }
@@ -156,10 +159,9 @@ struct OnboardingView: View {
                                 Text(name).font(.caption)
                             }
                             .fontDesign([Font.Design.default, .rounded, .serif, .monospaced][i])
-                            .frame(maxWidth: .infinity, minHeight: 58)
-                            .foregroundStyle(on ? Color.white : .primary)
-                            .background(RoundedRectangle(cornerRadius: 16).fill(on ? Color.themeAccent : Color.cardFill))
-                        }.buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                        }
+                        .buttonStyle(ChoiceTileStyle(selected: on))
                     }
                 }
                 HStack { Text("主題色").font(.headline); Spacer(); Text(settings.theme.name).foregroundStyle(.secondary) }
@@ -220,7 +222,7 @@ struct ThemeGrid: View {
         StackGrid(items: AppTheme.all, columns: 3, spacing: 10) { t in
                 Button { selection = t.id } label: {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Aa").font(.system(.title3, design: .serif).weight(.bold)).foregroundStyle(t.accent)
+                        Text("Aa").font(.system(.title3).weight(.bold)).foregroundStyle(t.accent)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                         Spacer(minLength: 0)
                         HStack {
@@ -231,9 +233,9 @@ struct ThemeGrid: View {
                         .padding(.horizontal, 10).frame(height: 28).background(t.accent)
                     }
                     .frame(height: 76)
-                    .background(t.background)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .background(t.swatch)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
                         .strokeBorder(selection == t.id ? Color.primary : Color.hairline, lineWidth: selection == t.id ? 2 : 1))
                 }.buttonStyle(.plain)
         }
@@ -265,7 +267,7 @@ struct Hero: View {
     var body: some View {
         let current = word ?? samples[tick % samples.count]
         VStack(alignment: .leading, spacing: 10) {
-            Text(current).font(.system(size: 32, weight: .bold, design: .serif)).contentTransition(.opacity)
+            Text(current).font(.system(size: 32, weight: .bold)).contentTransition(.opacity)
             if let e = Dictionary_.lookup(current) {
                 Text("\(e.pos)  /\(e.ipa)/").font(.caption).foregroundStyle(.secondary)
                 // During the level test the hero must not reveal the answer.
@@ -277,14 +279,13 @@ struct Hero: View {
         }
         .padding(22)
         .frame(width: 250, height: 210, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.hairline))
+        .background(Color.cardFill, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        // DESIGN.md: the one shadow in the system, for an object resting on a surface.
+        .shadow(color: .black.opacity(0.22), radius: 15, x: 3, y: 5)
         .overlay(alignment: .topTrailing) {
             LIcon("bookmark.fill").font(.system(size: 34)).foregroundStyle(Color.themeAccent)
                 .offset(y: -4).padding(.trailing, 22)
         }
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.ember.opacity(0.18))
-            .offset(x: 10, y: 10))
         .rotationEffect(.degrees(Double(page % 2 == 0 ? -2 : 2)))
         .animation(.spring(duration: 0.6), value: current)
         .task(id: word == nil) {

@@ -55,7 +55,7 @@ struct StudyTab: View {
     }
 
     private func sectionHeader(_ t: String) -> some View {
-        Text(t).font(.system(.title3, design: .serif).weight(.bold)).padding(.bottom, -10)
+        Text(t).font(.system(.title3).weight(.bold)).padding(.bottom, -10)
     }
 
     /// Lexi's home: a ring for today's new words beside the day's numbers, then one big start button.
@@ -75,7 +75,7 @@ struct StudyTab: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.spring(duration: 0.8), value: progress)
                     VStack(spacing: 0) {
-                        Text("\(stats.newToday)").font(.system(size: 34, weight: .bold, design: .serif)).contentTransition(.numericText())
+                        Text("\(stats.newToday)").font(.system(size: 34, weight: .bold)).contentTransition(.numericText())
                         Text("/ \(settings.dailyGoal) 新字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
@@ -90,7 +90,7 @@ struct StudyTab: View {
                         statLine("target", "每日目標", "\(settings.dailyGoal) 個 ▾", .themeAccent)
                     }
                     .buttonStyle(.plain)
-                    statLine("flame.fill", "連續", "\(stats.streak) 天", .ember)
+                    statLine("flame.fill", "連續", "\(stats.streak) 天", .themeAccent)
                 }
                 Spacer(minLength: 0)
             }
@@ -185,9 +185,9 @@ struct StudyTab: View {
                     flow = StudyRequest(title: d.rawValue, words: ws)
                 } label: {
                     HStack(spacing: 14) {
-                        Text(String(d.rawValue.prefix(1))).font(.system(.headline, design: .serif).bold())
+                        Text(String(d.rawValue.prefix(1))).font(.system(.headline).bold())
                             .foregroundStyle(.tint).frame(width: 36, height: 36)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.themeAccent.opacity(0.12)))
+                            .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.12)))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(d.rawValue).font(.headline).foregroundStyle(.primary)
                             Text("\(entries.count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -202,8 +202,8 @@ struct StudyTab: View {
                 if d.id != Deck.studyDecks.last?.id { Divider().padding(.leading, 66) }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.hairline))
+        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
         .overlay(alignment: .bottomLeading) {
             Text("從內建字庫開始，會把還沒學過的字加入「我的單字」。").font(.caption).foregroundStyle(.secondary).offset(y: 24)
         }
@@ -419,7 +419,7 @@ struct SessionSetupView: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                    Text("本輪設定").font(.system(.largeTitle, design: .serif).weight(.bold))
+                    Text("本輪設定").font(.system(.largeTitle).weight(.bold))
                 }
                 Spacer()
                 Button { showInfo = true } label: { LIcon("questionmark.circle").font(.title3) }
@@ -484,7 +484,7 @@ struct SessionSetupView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 PulsoIconView(.infinity, size: 34, color: .themeAccent, strokeWidth: 2.4, play: true)
-                Text("無盡模式").font(.system(size: 34, weight: .heavy))
+                Text("無盡模式").font(.system(size: 34, weight: .semibold))
             }
             Text("從 \(request.words.count) 個字裡隨機抽考，一輪考完會重新洗牌再抽，隨時按左上角結束。")
                 .font(.subheadline).foregroundStyle(.secondary)
@@ -500,7 +500,7 @@ struct SessionSetupView: View {
         return VStack(spacing: 12) {
             if endless { endlessCard } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(words.count) 個字").font(.system(size: 34, weight: .heavy))
+                Text("\(words.count) 個字").font(.system(size: 34, weight: .semibold))
                 Text("複習 \(review)・新字 \(fresh)・約 \(max(1, words.count / 2)) 分鐘").foregroundStyle(.secondary)
                 Divider().padding(.vertical, 6)
                 ForEach(QType.allCases.filter { breakdown[$0] != nil }) { t in
@@ -529,14 +529,14 @@ struct SessionSetupView: View {
                 StackGrid(items: QType.allCases.filter { $0.group == g }, columns: 2, spacing: 10) { t in
                         let on = types.contains(t)
                         Button { if on { types.remove(t) } else { types.insert(t) } } label: {
-                            Text(t.rawValue).font(.headline)
-                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                                .padding(.horizontal, 16)
-                                .foregroundStyle(on ? Color.onAccent : .primary)
-                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(on ? Color.themeAccent : Color.cardFill))
-                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.hairline))
-                                .overlay(alignment: .topTrailing) { if on { LIcon("checkmark.circle.fill").foregroundStyle(Color.onAccent).padding(8) } }
-                        }.buttonStyle(.plain)
+                            HStack {
+                                Text(t.rawValue).font(.headline)
+                                Spacer(minLength: 0)
+                                if on { LIcon("checkmark.circle.fill") }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(ChoiceTileStyle(selected: on))
                 }
             }
         }
@@ -579,7 +579,7 @@ struct SessionView: View {
                     .foregroundStyle(.primary)
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text(engine.current?.type.rawValue ?? title).font(.system(.title3, design: .serif).weight(.bold))
+                    Text(engine.current?.type.rawValue ?? title).font(.system(.title3).weight(.bold))
                     Spacer()
                     if let w = engine.current?.word {
                         HStack(spacing: 4) {
@@ -756,7 +756,7 @@ struct FlashcardQuestion: View {
 
     @ViewBuilder private var swipeHint: some View {
         if abs(drag.width) > 30 {
-            Text(drag.width > 0 ? "會" : "不會").font(.title2.weight(.heavy))
+            Text(drag.width > 0 ? "會" : "不會").font(.title2.weight(.semibold))
                 .padding(.horizontal, 20).padding(.vertical, 8)
                 .background(Capsule().fill(drag.width > 0 ? Color.knowGreen : Color.againPink))
                 .padding(.top, 20)
@@ -776,13 +776,13 @@ struct FlashcardQuestion: View {
                 if !word.pos.isEmpty {
                     Text(word.pos).font(.caption.weight(.bold)).foregroundStyle(.tint)
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.themeAccent.opacity(0.12)))
+                        .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.12)))
                 }
                 Spacer()
                 Text(back ? "解釋" : "點一下翻面").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
-            Text(word.term).font(.system(size: back ? 36 : 46, weight: .bold, design: .serif)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(word.term).font(.system(size: back ? 36 : 46, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
             Button { Speech.say(word.term) } label: {
                 HStack(spacing: 6) {
                     LIcon("speaker.wave.2.fill").foregroundStyle(.tint)
@@ -804,7 +804,7 @@ struct FlashcardQuestion: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color.themeAccent.opacity(0.06)))
+                .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
                 .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
             } else if back && !word.definition.isEmpty {
                 Text(word.definition).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
@@ -816,8 +816,8 @@ struct FlashcardQuestion: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hairline))
+        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
     }
 }
 
@@ -849,7 +849,7 @@ struct ChoiceQuestion: View {
                         Text(String(UnicodeScalar(65 + k)!)).font(.subheadline.weight(.bold)).monospaced()
                             .foregroundStyle(picked == nil ? Color.themeAccent : .primary)
                             .frame(width: 30, height: 30)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
+                            .background(RoundedRectangle(cornerRadius: Radius.sm).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
                         Text(o).font(.headline).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
                         Spacer()
                         if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
@@ -857,8 +857,8 @@ struct ChoiceQuestion: View {
                     }
                     .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity, minHeight: 58)
-                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(fill(for: o)))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.hairline))
+                    .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(fill(for: o)))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
                 }
                 .buttonStyle(.plain)
                 .disabled(picked != nil)
@@ -891,7 +891,7 @@ struct ChoiceQuestion: View {
     @ViewBuilder private var prompt: some View {
         switch type {
         case .enToZh:
-            Text(word.term).font(.system(size: 44, weight: .bold, design: .serif)).lineLimit(1).minimumScaleFactor(0.5)
+            Text(word.term).font(.system(size: 44, weight: .bold)).lineLimit(1).minimumScaleFactor(0.5)
             HStack(spacing: 10) {
                 if !word.ipa.isEmpty { Text("[\(word.ipa)]").font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
                 SpeakButton(text: word.term).font(.footnote)
@@ -901,12 +901,12 @@ struct ChoiceQuestion: View {
             if !word.pos.isEmpty { Text(word.pos).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
         case .cloze:
             Text("選出填入空格的字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            TappableSentence(sentence: clozeSentence, font: .system(.title3, design: .serif).weight(.semibold)) { lookup = LookupTerm(term: $0) }
+            TappableSentence(sentence: clozeSentence, font: .system(.title3).weight(.semibold)) { lookup = LookupTerm(term: $0) }
                 .frame(maxWidth: .infinity, alignment: .leading)
         default:
             Button { Speech.say(word.term) } label: {
                 LIcon("speaker.wave.3.fill").font(.system(size: 44)).frame(width: 110, height: 110)
-                    .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             }.buttonStyle(.plain).foregroundStyle(.tint)
             Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.caption).foregroundStyle(.secondary)
         }
@@ -967,7 +967,7 @@ struct SpellingQuestion: View {
                 if listen {
                     Button { Speech.say(word.term) } label: {
                         LIcon("speaker.wave.3.fill").font(.system(size: 40)).frame(width: 100, height: 100)
-                            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
+                            .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
                     }.buttonStyle(.plain).foregroundStyle(.tint)
                 } else {
                     Text(word.meaningLine).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
@@ -983,8 +983,8 @@ struct SpellingQuestion: View {
                 .submitLabel(.done)
                 .onSubmit(check)
                 .padding(.horizontal, 16).frame(height: 54)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.cardFill))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
+                .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
                 .disabled(checked != nil)
             if let checked {
                 Label(checked ? "拼對了！" : "答案是 \(word.term)", pulso: checked ? "checkmark.circle.fill" : "xmark.circle.fill")
@@ -1030,8 +1030,8 @@ struct SpellingQuestion: View {
                 Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
                     .foregroundStyle(k < typed.count ? Color.primary : Color.secondary)
                     .frame(width: side, height: side * 1.2)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.cardFill))
-                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(k == typed.count && checked == nil ? Color.themeAccent : Color.hairline))
+                    .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.cardFill))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil ? Color.themeAccent : Color.hairline))
             }
         }
         .frame(maxWidth: .infinity)
@@ -1059,25 +1059,22 @@ struct StreakView: View {
         let next = BadgeKind.all[0].next(for: streak)
         VStack(spacing: 22) {
             HStack { Spacer(); ShareLink(item: "我在 Lexi 已經連續學習 \(streak) 天了！") { GlassCircleIcon(systemName: "square.and.arrow.up") }
-                .buttonStyle(.glass).buttonBorderShape(.roundedRectangle(radius: 12)) }
+                .buttonStyle(.glass).buttonBorderShape(.circle) }
             Spacer()
             ZStack {
-                LIcon("drop.fill").font(.system(size: 220)).foregroundStyle(
-                    LinearGradient(colors: [Color(white: 0.85), Color(white: 0.6)], startPoint: .top, endPoint: .bottom))
+                LIcon("drop.fill").font(.system(size: 220)).foregroundStyle(Color(white: 0.72))
                 LIcon("flame.fill").font(.system(size: 92))
-                    .foregroundStyle(LinearGradient(colors: [.yellow, .orange, .red], startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(Color.orange)
                     .offset(y: 30)
-                    .shadow(color: .orange, radius: appear ? 30 : 4)
             }
             .scaleEffect(appear ? 1 : 0.5)
-            Text("\(streak)").font(.system(size: 80, weight: .black)).contentTransition(.numericText())
+            Text("\(streak)").font(.system(size: 80, weight: .semibold)).contentTransition(.numericText())
             Text("天連續學習").font(.title3.bold())
             weekDots
             Text(streak >= next ? "已解鎖所有連續勳章" : "再 \(next - streak) 天解鎖下一枚連續勳章").font(.subheadline).opacity(0.7)
             Spacer()
             Button("繼續", action: onContinue)
-                .font(.headline).foregroundStyle(.black)
-                .frame(width: 140, height: 52).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white))
+                .buttonStyle(PillButtonStyle(fill: .white, foreground: .black)).frame(width: 160)
         }
         .foregroundStyle(.white)
         .padding(24)
@@ -1118,7 +1115,7 @@ struct SummaryView: View {
         let count = { (g: Grade) in results.filter { $0.grade == g }.count }
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("這一輪完成了").font(.system(.largeTitle, design: .serif).weight(.bold)).padding(.top, 30)
+                Text("這一輪完成了").font(.system(.largeTitle).weight(.bold)).padding(.top, 30)
                 Text("共 \(roundCount) 個字・今天新學 \(stats.newToday) 個・連續 \(stats.streak) 天")
                     .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 HStack(spacing: 22) {
@@ -1139,13 +1136,13 @@ struct SummaryView: View {
                         Label("每天提醒你回來練習？", pulso: "bell.badge.fill").font(.headline)
                         Text("每天 \(settings.reminderText) 通知你，複習才不會中斷。").font(.subheadline).foregroundStyle(.secondary)
                         HStack {
-                            Button("先不要") { settings.reminderAsked = true }.buttonStyle(PillButtonStyle(fill: .primary.opacity(0.06), height: 44))
+                            Button("先不要") { settings.reminderAsked = true }.buttonStyle(PillButtonStyle(height: 44))
                             Button("開啟提醒") { settings.reminderAsked = true; settings.reminderOn = true }
                                 .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 44, glass: true))
                         }
                     }.card()
                 }
-                Text("成就").font(.system(.title3, design: .serif).weight(.bold))
+                Text("成就").font(.system(.title3).weight(.bold))
                 HStack(alignment: .top) {
                     ForEach(BadgeKind.all) { k in BadgeMedal(kind: k, value: BadgeKind.value(k.id, stats: stats), size: 52).frame(maxWidth: .infinity) }
                 }
@@ -1156,7 +1153,7 @@ struct SummaryView: View {
         .scrollIndicators(.hidden)
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
-                Button("結束", action: onDone).buttonStyle(PillButtonStyle(fill: .cardFill, height: 54)).frame(width: 110)
+                Button("結束", action: onDone).buttonStyle(PillButtonStyle(height: 54)).frame(width: 110)
                 Button(left > 0 ? "再練一輪（還差 \(left)）" : "再練一輪", action: onAgain)
                     .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 54, glass: true))
             }
@@ -1170,7 +1167,7 @@ extension SummaryView {
     fileprivate var resultsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("這輪的字").font(.system(.headline, design: .serif).weight(.bold))
+                Text("這輪的字").font(.system(.headline).weight(.bold))
                 Spacer()
                 ForEach([Grade.good, .unsure, .again], id: \.self) { g in
                     let n = results.filter { $0.grade == g }.count
@@ -1205,7 +1202,7 @@ extension Grade {
     var label: String { switch self { case .good: "會"; case .unsure: "不確定"; case .again: "不會" } }
     var tint: Color { switch self { case .good: .knowGreen; case .unsure: .unsureYellow; case .again: .againPink } }
     /// Strong version used in the score ring and legends.
-    var ring: Color { switch self { case .good: .green.opacity(0.75); case .unsure: .ember; case .again: .themeAccent } }
+    var ring: Color { switch self { case .good: .green.opacity(0.75); case .unsure: .orange; case .again: .themeAccent } }
 }
 
 struct HistoryView: View {
