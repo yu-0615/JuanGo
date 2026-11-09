@@ -119,7 +119,7 @@ struct WordsTab: View {
                 EmptyState("還沒有單字", icon: "character.book.closed", message: "到「新增」或「探索」收集第一個單字吧。")
                     .frame(maxHeight: .infinity)
             } else {
-                List {
+                List { Group {
                     if sort == .newest || sort == .oldest {
                         let groups = Swift.Dictionary(grouping: filtered) { Calendar.current.startOfDay(for: $0.addedAt) }
                         ForEach(groups.keys.sorted(by: sort == .newest ? (>) : (<)), id: \.self) { day in
@@ -132,7 +132,7 @@ struct WordsTab: View {
                     } else {
                         ForEach(filtered) { row($0) }
                     }
-                }
+                }.listRowBackground(Color.cardFill) }.themedBackground()
                 .listStyle(.insetGrouped)
                 .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋英文或中文")
                 .textInputAutocapitalization(.never)
@@ -174,7 +174,7 @@ struct WordsTab: View {
     }
 
     private var myLists: some View {
-        List {
+        List { Group {
             Section {
                 Button { newList = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.headline) }
             }
@@ -186,12 +186,12 @@ struct WordsTab: View {
                 }
                 .onDelete { idx in idx.map { lists[$0] }.forEach(ctx.delete); try? ctx.save() }
             }
-        }
+        }.listRowBackground(Color.cardFill) }.themedBackground()
         .listStyle(.insetGrouped)
     }
 
     private var decks: some View {
-        List {
+        List { Group {
             ForEach(Deck.studyDecks) { d in
                 NavigationLink(value: ListRoute.deck(d.rawValue)) {
                     VStack(alignment: .leading) {
@@ -205,7 +205,7 @@ struct WordsTab: View {
                     NavigationLink(value: ListRoute.level(lv)) { listLabel(levelLabel(lv), "chart.bar.fill", Dictionary_.entries(level: lv).count) }
                 }
             }
-        }
+        }.listRowBackground(Color.cardFill) }.themedBackground()
         .listStyle(.insetGrouped)
     }
 
@@ -241,7 +241,7 @@ struct ListWordsView: View {
     @State private var lookup: LookupTerm?
 
     var body: some View {
-        List {
+        List { Group {
             switch route {
             case .deck, .level:
                 ForEach(entries) { e in
@@ -272,7 +272,7 @@ struct ListWordsView: View {
                     .swipeActions { Button("移出清單", role: .destructive) { removeFromRoute(w) } }
                 }
             }
-        }
+        }.listRowBackground(Color.cardFill) }
         .navigationTitle(title)
         .themedBackground()
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }

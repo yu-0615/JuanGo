@@ -28,7 +28,7 @@ struct ImportTab: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                     suggestionList
                 } else {
@@ -49,7 +49,7 @@ struct ImportTab: View {
                     }
                     Section("最近新增") { recentList }
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .listStyle(.insetGrouped)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "輸入英文單字或中文意思")
             .searchFocused($focused)
@@ -243,7 +243,7 @@ struct OCRPickerView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if candidates.known.isEmpty && candidates.unknown.isEmpty {
                     EmptyState("沒有找到英文單字", icon: "text.viewfinder", message: "換一張更清楚的照片再試一次。")
                 }
@@ -257,7 +257,7 @@ struct OCRPickerView: View {
                         ForEach(candidates.unknown, id: \.term) { u in row(u.term, u.meaning, level: nil) }
                     } header: { Text("其他字（加入後可再編輯意思）") }
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("選擇要加入的字")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

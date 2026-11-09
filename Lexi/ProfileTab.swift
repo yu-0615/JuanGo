@@ -11,7 +11,7 @@ struct ProfileTab: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section { streakCard }
                 Section("統計") {
                     statRow("今天練習", stats.studiedToday, "checklist")
@@ -22,7 +22,7 @@ struct ProfileTab: View {
                 Section { calendarCard }
                 Section { badgesCard }
                 Section { MasteryCard(distribution: stats.distribution, boxed: false) }
-            }
+            }.listRowBackground(Color.cardFill) }
             .listStyle(.insetGrouped)
             .navigationTitle("我的")
             .themedBackground()
@@ -146,10 +146,10 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var settings = settings
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("學習") {
                     NavigationLink {
-                        Form {
+                        Form { Group {
                             Section("每日新字") {
                                 Stepper("\(settings.dailyGoal) 個 / 天", value: $settings.dailyGoal, in: 1...100)
                             }
@@ -158,10 +158,10 @@ struct SettingsView: View {
                                     ForEach(examLevels, id: \.self) { Text("\(levelLabel($0))・\(LevelTest.blurb($0))").tag($0) }
                                 }.pickerStyle(.inline).labelsHidden()
                             }
-                        }.navigationTitle("學習目標")
+                        }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("學習目標")
                     } label: { row("smallcircle.filled.circle", "學習目標", "每日新字與單字程度") }
                     NavigationLink {
-                        Form {
+                        Form { Group {
                             Toggle("顯示例句翻譯", isOn: $settings.showTranslation)
                             Toggle("自動發音", isOn: Binding(get: { !settings.muted }, set: { settings.muted = !$0 }))
                             Toggle("震動回饋", isOn: $settings.haptics)
@@ -171,29 +171,29 @@ struct SettingsView: View {
                             }
                             Button("試聽") { Speech.say("resilient") }
                             Button("重新顯示學習規則與探索教學") { settings.studyRulesSeen = false; settings.exploreTipsDone = false }
-                        }.navigationTitle("練習")
+                        }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("練習")
                     } label: { row("graduationcap.fill", "練習", "例句翻譯、發音與震動") }
                     NavigationLink {
-                        Form {
+                        Form { Group {
                             Toggle("每日提醒", isOn: $settings.reminderOn)
                             if settings.reminderOn {
                                 DatePicker("提醒時間", selection: $settings.reminderDate, displayedComponents: .hourAndMinute)
                             }
-                        }.navigationTitle("提醒與通知")
+                        }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("提醒與通知")
                     } label: { row("bell.fill", "提醒與通知", settings.reminderOn ? "每天 \(settings.reminderText)" : "關閉") }
                 }
                 Section("單字與探索") {
                     NavigationLink {
-                        Form { Toggle("在列表顯示中文意思", isOn: $settings.listShowMeaning) }.navigationTitle("單字列表")
+                        Form { Group { Toggle("在列表顯示中文意思", isOn: $settings.listShowMeaning) }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("單字列表")
                     } label: { row("list.bullet.rectangle.fill", "單字列表", "單字清單的中文意思") }
                     NavigationLink {
-                        Form { Toggle("打開單字頁時自動發音", isOn: $settings.detailAutoSpeak) }.navigationTitle("單字詳情")
+                        Form { Group { Toggle("打開單字頁時自動發音", isOn: $settings.detailAutoSpeak) }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("單字詳情")
                     } label: { row("book.closed.fill", "單字詳情", "完整單字頁的自動發音") }
                     NavigationLink {
-                        Form {
+                        Form { Group {
                             Toggle("顯示音標", isOn: $settings.exploreShowIPA)
                             Toggle("顯示例句翻譯", isOn: $settings.showTranslation)
-                        }.navigationTitle("探索")
+                        }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("探索")
                     } label: { row("safari.fill", "探索", "探索卡片的音標與例句翻譯") }
                 }
                 Section("外觀") {
@@ -214,7 +214,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("詞彙與分級：大學入學考試中心《高中英文參考詞彙表》（111 學年度起適用），僅供非營利學習使用。中文解釋與音標整理自 ECDICT（MIT 授權），內容可能有誤，可在單字頁自行編輯。所有學習資料只存在這台裝置上。")
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("設定")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
             .confirmationDialog("重設所有學習進度？", isPresented: $confirmReset, titleVisibility: .visible) {

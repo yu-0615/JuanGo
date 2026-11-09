@@ -333,9 +333,23 @@ struct AppTheme: Identifiable, Hashable {
     }
     /// Swatch paper colour, only used to preview the theme in the theme picker.
     var swatch: Color { Color(hex: bgHex) }
-    /// Pages sit on the native grouped background (DESIGN.md "parchment" in light mode, black in dark mode);
-    /// a theme only changes the single accent colour.
-    var background: Color { Color(.systemGroupedBackground) }
+    /// Page paper: a faint wash of the theme's own hue (light: almost white, dark: deep tinted night).
+    var background: Color { tone(light: (0.07, 0.975), dark: (0.30, 0.20)) }
+    /// Section surface: the same hue one step deeper than the page, so stacks read as pressed-in
+    /// blocks of colour instead of white cards (light and dark both go darker).
+    var section: Color { tone(light: (0.13, 0.915), dark: (0.30, 0.135)) }
+
+    /// A colour with the accent's hue at the given saturation/brightness. Saturation is scaled by
+    /// how colourful the accent is, so a grey theme (石墨) stays a neutral grey.
+    private func tone(light: (s: CGFloat, b: CGFloat), dark: (s: CGFloat, b: CGFloat)) -> Color {
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(Color(hex: accentHex)).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let k = min(1, s / 0.6)
+        return Color(UIColor { t in
+            let v = t.userInterfaceStyle == .dark ? dark : light
+            return UIColor(hue: h, saturation: v.s * k, brightness: v.b, alpha: 1)
+        })
+    }
 
     /// Lexi's own palette, built around the phoenix-red logo.
     static let all: [AppTheme] = [
@@ -362,8 +376,8 @@ extension Color {
     init(hex: UInt32) {
         self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
     }
-    /// Native card surface: white on the parchment background, near-black tile in dark mode.
-    static let cardFill = Color(.secondarySystemGroupedBackground)
+    /// Section / card surface of the current theme (one step deeper than the page background).
+    static var cardFill: Color { AppSettings.shared.theme.section }
     static let knowGreen = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.33, blue: 0.25, alpha: 1) : UIColor(red: 0.84, green: 0.92, blue: 0.86, alpha: 1) })
     static let unsureYellow = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.38, green: 0.29, blue: 0.13, alpha: 1) : UIColor(red: 0.98, green: 0.90, blue: 0.74, alpha: 1) })
     static let againPink = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.40, green: 0.16, blue: 0.18, alpha: 1) : UIColor(red: 0.97, green: 0.85, blue: 0.84, alpha: 1) })

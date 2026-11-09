@@ -254,7 +254,7 @@ struct AddToListSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     Button { creating = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.headline) }
                 }
@@ -267,7 +267,7 @@ struct AddToListSheet: View {
                     }
                     .onDelete { idx in idx.map { lists[$0] }.forEach(ctx.delete); try? ctx.save() }
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .foregroundStyle(.primary)
             .searchable(text: $search, placement: .navigationBarDrawer, prompt: "搜尋清單")
             .navigationTitle("加入其他清單")
@@ -299,7 +299,7 @@ struct EditWordSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            Form { Group {
                 Section("單字") { TextField("單字", text: $entry.w).font(.title3.bold()).textInputAutocapitalization(.never) }
                 Section("選擇要保留的意思") {
                     ForEach(Array(entry.zh.enumerated()), id: \.offset) { i, m in
@@ -331,7 +331,7 @@ struct EditWordSheet: View {
                     TextField("English example", text: $entry.ex, axis: .vertical)
                     TextField("中文翻譯", text: $entry.exZh, axis: .vertical)
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("確認單字").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button(role: .cancel) { dismiss() } }

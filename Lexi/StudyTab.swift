@@ -22,7 +22,7 @@ struct StudyTab: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section {
                     todayRing
                     startButton.listRowSeparator(.hidden)
@@ -51,7 +51,7 @@ struct StudyTab: View {
                 } footer: {
                     Text("從內建字庫開始，會把還沒學過的字加入「我的單字」。")
                 }
-            }
+            }.listRowBackground(Color.cardFill) }
             .listStyle(.insetGrouped)
             .navigationTitle("今天")
             .themedBackground()
@@ -633,7 +633,7 @@ struct RulesSheet: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 Section("使用提示") {
                     rule("checkmark.circle", "右滑：會", "安排到下次到期再出現。")
                     rule("xmark.circle", "左滑：不會", "約 20 分鐘後再出現，本輪也會再考一次。")
@@ -642,7 +642,7 @@ struct RulesSheet: View {
                     rule("heart", "愛心：加入喜歡", "喜歡的單字會進入「喜歡」清單。")
                     rule("arrow.uturn.backward", "撤銷", "復原上一個答案。")
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("學習規則").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
         }
@@ -1183,7 +1183,7 @@ struct HistoryView: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if logs.isEmpty { EmptyState("還沒有學習紀錄", icon: "clock") }
                 let groups = Swift.Dictionary(grouping: logs.prefix(500)) { Calendar.current.startOfDay(for: $0.date) }
                 ForEach(groups.keys.sorted(by: >), id: \.self) { day in
@@ -1200,7 +1200,7 @@ struct HistoryView: View {
                         }
                     }
                 }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("學習紀錄")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
         }

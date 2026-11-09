@@ -608,7 +608,7 @@ struct ScanView: View {
 
     private var selectionList: some View {
         NavigationStack {
-            List {
+            List { Group {
                 if selected.isEmpty { Text("還沒有選取任何字").foregroundStyle(.secondary) }
                 ForEach(selected, id: \.self) { key in
                     let e = Dictionary_.lookup(key)
@@ -623,7 +623,7 @@ struct ScanView: View {
                     }
                 }
                 .onDelete { selected.remove(atOffsets: $0) }
-            }
+            }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("已選 \(selected.count) 個")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
