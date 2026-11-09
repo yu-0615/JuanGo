@@ -14,7 +14,7 @@ final class ExampleStore {
     struct Example: Codable, Hashable { var en: String; var zh: String }
 
     private(set) var cache: [String: Example]
-    private var queue: [DictEntry] = []
+    private var queue: [(e: DictEntry, key: String)] = []
     private var inFlight: String?
     private var failed: Set<String> = []
 
@@ -41,19 +41,28 @@ final class ExampleStore {
         return cache[e.w]
     }
 
+    /// Cache key for a word taught with these meanings: the word itself for the dictionary's main sense,
+    /// "book|預訂" when a word list teaches another sense (so "book v. 預訂" never gets "I read a new book").
+    static func key(term: String, meanings: [String]) -> String {
+        guard let first = meanings.first, let d = Dictionary_.lookup(term), d.w == term, let main = d.zh.first else { return term }
+        let same = meanings.contains { main.contains($0) || $0.contains(main) }
+        return same ? term : "\(term)|\(first)"
+    }
+
     /// Fills `ex`/`exZh` from the cache so new `Word`s get the example too.
     func filled(_ e: DictEntry) -> DictEntry {
-        guard e.ex.isEmpty, let c = cache[e.w] else { return e }
+        guard e.ex.isEmpty, let c = cache[Self.key(term: e.w, meanings: e.zh)] else { return e }
         var e = e; e.ex = c.en; e.exZh = c.zh; return e
     }
 
-    func isGenerating(_ e: DictEntry) -> Bool { inFlight == e.w || queue.contains { $0.w == e.w } }
+    func isGenerating(_ e: DictEntry) -> Bool { inFlight == e.w || queue.contains { $0.key == e.w } }
 
     /// Queue a word; the newest requests go first so the card on screen is served before prefetches.
-    func request(_ e: DictEntry, urgent: Bool = false) {
-        guard e.ex.isEmpty, cache[e.w] == nil, !failed.contains(e.w), Self.isAvailable, inFlight != e.w else { return }
-        queue.removeAll { $0.w == e.w }
-        if urgent { queue.insert(e, at: 0) } else { queue.append(e) }
+    func request(_ e: DictEntry, urgent: Bool = false, key: String? = nil) {
+        let key = key ?? e.w
+        guard e.ex.isEmpty, cache[key] == nil, !failed.contains(key), Self.isAvailable, inFlight != key else { return }
+        queue.removeAll { $0.key == key }
+        if urgent { queue.insert((e, key), at: 0) } else { queue.append((e, key)) }
         if queue.count > 40 { queue.removeLast(queue.count - 40) }
         pump()
     }
@@ -61,25 +70,28 @@ final class ExampleStore {
     /// Give saved words without an example one (runs quietly in the background, a few at a time).
     func backfill(_ words: [Word]) {
         for w in words where w.example.isEmpty {
-            if let c = cache[w.term] { w.example = c.en; w.exampleZh = c.zh; continue }
-            if let e = Dictionary_.lookup(w.term) { request(e) }
+            let key = Self.key(term: w.term, meanings: w.meanings)
+            if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
+            if key == w.term, let e = Dictionary_.lookup(w.term) { request(e); continue }
+            // a sense of its own: write the example from the word's own part of speech and meanings
+            request(DictEntry(w: w.term, ipa: w.ipa, pos: w.pos, zh: w.meanings, def: w.definition, ex: "", exZh: "", lv: w.cefr), key: key)
         }
         try? words.first?.modelContext?.save()
     }
 
     private func pump() {
         guard inFlight == nil, !queue.isEmpty else { return }
-        let e = queue.removeFirst()
-        inFlight = e.w
+        let (e, key) = queue.removeFirst()
+        inFlight = key
         Task {
             let r = await Self.generate(e)
             inFlight = nil
             if let r {
-                cache[e.w] = r
+                cache[key] = r
                 save()
-                applyToSavedWord(e.w, r)
+                applyToSavedWord(e.w, key, r)
             } else {
-                failed.insert(e.w)
+                failed.insert(key)
             }
             pump()
         }
@@ -87,10 +99,12 @@ final class ExampleStore {
 
     /// Words saved before their example existed pick it up here.
     var container: ModelContainer?
-    private func applyToSavedWord(_ term: String, _ r: Example) {
+    private func applyToSavedWord(_ term: String, _ key: String, _ r: Example) {
         guard let ctx = container?.mainContext else { return }
         var fd = FetchDescriptor<Word>(predicate: #Predicate { $0.term == term }); fd.fetchLimit = 1
-        if let w = try? ctx.fetch(fd).first, w.example.isEmpty { w.example = r.en; w.exampleZh = r.zh; try? ctx.save() }
+        if let w = try? ctx.fetch(fd).first, w.example.isEmpty, Self.key(term: w.term, meanings: w.meanings) == key {
+            w.example = r.en; w.exampleZh = r.zh; try? ctx.save()
+        }
     }
 
     private func save() {

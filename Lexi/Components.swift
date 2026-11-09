@@ -13,19 +13,21 @@ struct FlowLayout: Layout {
         var x: CGFloat = 0, y: CGFloat = 0, lineH: CGFloat = 0, widest: CGFloat = 0
         for v in subviews {
             let s = v.sizeThatFits(.unspecified)
-            if x > 0 && x + s.width > maxW { y += lineH + lineSpacing; x = 0; lineH = 0 }
+            if x > 0 && x + s.width > maxW + 0.5 { y += lineH + lineSpacing; x = 0; lineH = 0 }
             x += s.width + spacing
             lineH = max(lineH, s.height)
             widest = max(widest, x - spacing)
         }
-        return CGSize(width: min(widest, maxW), height: y + lineH)
+        // Take the whole offered width: returning exactly the widest line made placement (which compares
+        // against these bounds) wrap a chip that measured as fitting, drawing it over the next section.
+        return CGSize(width: proposal.width ?? widest, height: y + lineH)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var x = bounds.minX, y = bounds.minY, lineH: CGFloat = 0
         for v in subviews {
             let s = v.sizeThatFits(.unspecified)
-            if x > bounds.minX && x + s.width > bounds.maxX { y += lineH + lineSpacing; x = bounds.minX; lineH = 0 }
+            if x > bounds.minX && x + s.width > bounds.maxX + 0.5 { y += lineH + lineSpacing; x = bounds.minX; lineH = 0 }
             v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
             x += s.width + spacing
             lineH = max(lineH, s.height)

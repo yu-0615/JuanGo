@@ -37,6 +37,8 @@ struct ScanResult: Identifiable {
     let id = UUID()
     let image: UIImage
     let tokens: [ScanToken]
+    /// Filled when the photo is a word list (單字統整): the part of speech and meanings printed on it.
+    var glossary: [GlossaryEntry] = []
 }
 
 enum PhotoScanner {
@@ -53,12 +55,12 @@ enum PhotoScanner {
     static func scan(_ raw: UIImage) async -> ScanResult? {
         let image = upright(raw)
         guard let cg = image.cgImage else { return nil }
-        let (words, text) = await recognizeWords(cg)
+        let (words, text, lines) = await recognizeWords(cg)
         let used = partsOfSpeech(in: text, at: words.map(\.loc))
         let tokens = words.enumerated().map { i, w in
             ScanToken(id: i, text: w.text, rect: w.rect, entry: w.text.count >= 2 ? Dictionary_.lookup(w.text) : nil, context: used[i])
         }
-        return ScanResult(image: image, tokens: tokens)
+        return ScanResult(image: image, tokens: tokens, glossary: GlossaryParser.parse(rows: GlossaryParser.rows(from: lines)))
     }
 
     /// Tags each word (given by its UTF-16 offset in `text`) with the part of speech it has in its sentence.
@@ -76,21 +78,25 @@ enum PhotoScanner {
 
     /// Words with their boxes, plus the recognised text joined into running prose (lines joined by spaces,
     /// so a sentence that wraps stays one sentence) and each word's UTF-16 offset in it, for tagging.
-    nonisolated private static func recognizeWords(_ cg: CGImage) async -> ([(text: String, rect: CGRect, loc: Int)], String) {
+    nonisolated private static func recognizeWords(_ cg: CGImage) async -> ([(text: String, rect: CGRect, loc: Int)], String, [(text: String, box: CGRect)]) {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 let req = VNRecognizeTextRequest()
                 req.recognitionLevel = .accurate
-                req.recognitionLanguages = ["en-US"]
+                // Chinese too: word lists print 中文意思 next to each word, and an English-only
+                // recogniser turns those characters into junk "words" (FA, EA…).
+                req.recognitionLanguages = ["zh-Hant", "en-US"]
                 req.usesLanguageCorrection = true
                 try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([req])
                 let ink = InkMap(cg)
                 var out: [(text: String, rect: CGRect, loc: Int)] = []
                 var full = ""
+                var lines: [(text: String, box: CGRect)] = []
                 var hyphenated: Int?          // index of a word broken across lines ("trans-")
                 for obs in req.results ?? [] {
                     guard let cand = obs.topCandidates(1).first else { continue }
                     let s = cand.string
+                    lines.append((s, obs.boundingBox))
                     let base = full.utf16.count
                     full += s + " "
                     let matches = s.matches(of: /[A-Za-z]+(?:['’][A-Za-z]+)*/)
@@ -111,7 +117,7 @@ enum PhotoScanner {
                         }
                     }
                 }
-                cont.resume(returning: (out.filter { $0.text.count >= 2 }, full))
+                cont.resume(returning: (out.filter { $0.text.count >= 2 }, full, lines))
             }
         }
     }
@@ -336,6 +342,21 @@ struct ScanView: View {
     private var saved: Set<String> { Set(library.filter(\.inMyWords).map(\.term)) }
     private var matches: [ScanToken] { result.tokens.filter { filter.accepts($0, saved: saved) } }
     private var matchKeys: [String] { unique(matches.map(\.key)) }
+    /// Word-list photos: what the page itself says about each word, keyed by the word exactly as printed
+    /// (so "approximately" stays approximately instead of becoming the dictionary's "approximate").
+    private var pageEntries: [String: GlossaryEntry] {
+        Dictionary(result.glossary.map { ($0.term, repaired($0)) }, uniquingKeysWith: { a, _ in a })
+    }
+    private var pageKeys: [String] { result.glossary.map(\.term) }
+    /// The dictionary entry spelled exactly like `term`, if any.
+    private func exactEntry(_ term: String) -> DictEntry? { Dictionary_.lookup(term).flatMap { $0.w == term ? $0 : nil } }
+    /// OCR tends to drop a line-final 的 ("有能力的" → "有能力"); put it back when the dictionary has that meaning.
+    private func repaired(_ g: GlossaryEntry) -> GlossaryEntry {
+        guard let e = exactEntry(g.term) else { return g }
+        var g = g
+        g.meanings = g.meanings.map { m in e.zh.contains(m + "的") ? m + "的" : m }
+        return g
+    }
     private func unique(_ a: [String]) -> [String] { var s = Set<String>(); return a.filter { s.insert($0).inserted } }
 
     var body: some View {
@@ -361,8 +382,14 @@ struct ScanView: View {
                 filter.minLevel = max(2, Int(settings.level) ?? 2)
                 #if DEBUG   // simulator testing: SIMCTL_CHILD_LEXI_SCAN_POS=v. (and LEXI_SCAN_LIST=1 to open the list)
                 let env = ProcessInfo.processInfo.environment
-                if let p = env["LEXI_SCAN_POS"] { filter.minLevel = 1; filter.pos = [p]; selected = matchKeys; showList = env["LEXI_SCAN_LIST"] != nil }
+                if let p = env["LEXI_SCAN_POS"] { filter.minLevel = 1; filter.pos = [p]; selected = matchKeys; showList = env["LEXI_SCAN_LIST"] != nil; return }
                 #endif
+                // A word list: take every word on it, with the page's own part of speech and meaning.
+                if !result.glossary.isEmpty {
+                    selected = pageKeys
+                    flash("單字統整頁：帶入 \(pageKeys.count) 個字的詞性和中文")
+                    Task { try? await Task.sleep(for: .milliseconds(900)); showList = true }
+                }
             }
         }
     }
@@ -382,10 +409,11 @@ struct ScanView: View {
                         // With a part-of-speech filter on, only the occurrences used that way are filled;
                         // the same word used another way ("booked" while picking nouns) just gets an outline.
                         let usedThatWay = filter.pos.isEmpty || !filter.pos.isDisjoint(with: t.usedAs)
-                        if sel.contains(t.key) && usedThatWay {
+                        let picked = sel.contains(t.key) || sel.contains(t.text.lowercased())
+                        if picked && usedThatWay {
                             g.fill(shape, with: .color(settings.theme.accent.opacity(0.45)))
                             g.stroke(shape, with: .color(settings.theme.accent), lineWidth: 2 / zoom)
-                        } else if sel.contains(t.key) {
+                        } else if picked {
                             g.stroke(shape, with: .color(settings.theme.accent.opacity(0.6)), lineWidth: 1.2 / zoom)
                         } else if cand.contains(t.id) {
                             g.stroke(shape, with: .color(.orange.opacity(0.95)),
@@ -661,17 +689,25 @@ struct ScanView: View {
             List { Group {
                 if selected.isEmpty { Text("還沒有選取任何字").foregroundStyle(.secondary) }
                 ForEach(selected, id: \.self) { key in
-                    let e = Dictionary_.lookup(key)
+                    let e = pageEntries[key] != nil ? exactEntry(key) : Dictionary_.lookup(key)
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
                                 Text(key).font(.headline)
-                                let used = usage(of: key)
-                                if !used.isEmpty {
-                                    Text(used).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                                if let g = pageEntries[key] {
+                                    if !g.pos.isEmpty { Text(g.pos).font(.caption.weight(.semibold)).foregroundStyle(.tint) }
+                                } else {
+                                    let used = usage(of: key)
+                                    if !used.isEmpty {
+                                        Text(used).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                                    }
                                 }
                             }
-                            Text(e?.zh.joined(separator: "・") ?? "不在字典裡，加入後可以自己填意思").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                            if let g = pageEntries[key] {
+                                Text(g.meanings.joined(separator: "・")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                            } else {
+                                Text(e?.zh.joined(separator: "・") ?? "不在字典裡，加入後可以自己填意思").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                            }
                         }
                         Spacer()
                         if let e { Text(levelLabel(e.lv)).font(.caption.bold()).foregroundStyle(.secondary) }
@@ -679,6 +715,10 @@ struct ScanView: View {
                     }
                 }
                 .onDelete { selected.remove(atOffsets: $0) }
+                if !result.glossary.isEmpty {
+                    Text("偵測到單字統整頁，詞性和中文意思照頁面上的寫法加入。").font(.footnote).foregroundStyle(.secondary)
+                        .listRowBackground(Color.clear)
+                }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("已選 \(selected.count) 個")
             .navigationBarTitleDisplayMode(.inline)
@@ -692,9 +732,24 @@ struct ScanView: View {
 
     private func addSelected() {
         for key in selected {
-            if let e = Dictionary_.lookup(key) { Library.add(e, to: destination, in: ctx) }
+            if let g = pageEntries[key] {
+                // the page's own part of speech and meanings win over the dictionary's
+                var e = exactEntry(key) ?? .custom(g.term, meaning: "")
+                if !g.pos.isEmpty { e.pos = g.pos }
+                // The dictionary's English definition and example describe the dictionary's sense; when the
+                // page teaches another one (book v. 預訂, not 書), drop them so they don't contradict it.
+                // (the definition and example belong to the dictionary's first sense)
+                let first = e.zh.first ?? ""
+                let sameSense = first.isEmpty || g.meanings.contains { first.contains($0) || $0.contains(first) }
+                if !sameSense { e.def = ""; e.ex = ""; e.exZh = "" }
+                e.zh = g.meanings
+                let w = Library.add(e, meanings: g.meanings, to: destination, in: ctx)
+                if !g.pos.isEmpty { w.pos = g.pos }
+                if !sameSense { w.definition = ""; w.example = ""; w.exampleZh = ""; ExampleStore.shared.backfill([w]) }
+            } else if let e = Dictionary_.lookup(key) { Library.add(e, to: destination, in: ctx) }
             else { Library.add(.custom(key, meaning: ""), to: destination, in: ctx) }
         }
+        try? ctx.save()
         onDone(selected.count)
         dismiss()
     }
