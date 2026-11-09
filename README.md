@@ -15,6 +15,7 @@ Lexi 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔�
 ## 設計
 
 - 圖示全部使用 [PulsoIcon](https://github.com/CityPulso/PulsoIcon)（會動的圖示），版面以 SwiftUI Stack 組成
+- `Packages/PulsoIcon` 是只含 Lexi 用到 74 個圖示的精簡版（編譯從十幾分鐘變成十幾秒）；要加圖示時，先在 `Lexi/Icons.swift` 加對應，再執行 `scripts/trim.py`
 - 按鈕一律圓角矩形；主要按鈕使用 iOS 26 Liquid Glass
 - 標題與單字使用襯線字，卡片用細邊框取代陰影
 

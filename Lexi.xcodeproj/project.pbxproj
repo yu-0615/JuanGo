@@ -101,7 +101,7 @@
 			mainGroup = 4B0000000000000000000003;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				4B0000000000000000000010 /* XCRemoteSwiftPackageReference "PulsoIcon" */,
+				4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4B0000000000000000000004 /* Products */;
@@ -264,21 +264,17 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		4B0000000000000000000010 /* XCRemoteSwiftPackageReference "PulsoIcon" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/CityPulso/PulsoIcon.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 6.1.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PulsoIcon;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		4B0000000000000000000011 /* PulsoIcon */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 4B0000000000000000000010 /* XCRemoteSwiftPackageReference "PulsoIcon" */;
+			package = 4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */;
 			productName = PulsoIcon;
 		};
 /* End XCSwiftPackageProductDependency section */
