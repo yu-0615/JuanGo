@@ -364,15 +364,28 @@ let levelNames = ["未學", "初見", "認得", "熟悉", "穩固", "精通"]
 /// Six steps from 未學 to 精通; each column's height shows how many words sit on that step.
 struct MasteryCard: View {
     let distribution: [Int]
+    /// false inside a List section (the section is the card).
+    var boxed = true
     @State private var showInfo = false
 
     var body: some View {
+        Group {
+            if boxed { ladder.card() } else { ladder }
+        }
+        .alert("熟練階梯", isPresented: $showInfo) {
+            Button("好") {}
+        } message: {
+            Text("答「會」往上爬一階，答「不會」退一階。\n初見 翻卡片 → 認得 英翻中 → 熟悉 中翻英 → 穩固 克漏字 → 精通 拼單字。\n爬到精通並再答對一次，就算真正學會。")
+        }
+    }
+
+    private var ladder: some View {
         let top = max(1, distribution.max() ?? 1)
-        VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("熟練階梯").font(.system(.headline).weight(.bold))
                 Spacer()
-                Button { showInfo = true } label: { LIcon("questionmark.circle") }.foregroundStyle(.secondary)
+                Button { showInfo = true } label: { LIcon("questionmark.circle") }.buttonStyle(.borderless).foregroundStyle(.secondary)
             }
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<6, id: \.self) { i in
@@ -386,12 +399,6 @@ struct MasteryCard: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-        }
-        .card()
-        .alert("熟練階梯", isPresented: $showInfo) {
-            Button("好") {}
-        } message: {
-            Text("答「會」往上爬一階，答「不會」退一階。\n初見 翻卡片 → 認得 英翻中 → 熟悉 中翻英 → 穩固 克漏字 → 精通 拼單字。\n爬到精通並再答對一次，就算真正學會。")
         }
     }
 }

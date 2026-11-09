@@ -227,7 +227,6 @@ struct ExploreCard: View {
         }
         .padding(22)
         .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
         .overlay {
             LIcon("bookmark.fill").font(.system(size: 80)).foregroundStyle(Color.themeAccent)
                 .scaleEffect(pop ? 1.1 : 0.4).opacity(pop ? 0.9 : 0)

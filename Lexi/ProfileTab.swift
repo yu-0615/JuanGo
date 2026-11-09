@@ -11,16 +11,19 @@ struct ProfileTab: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    streakCard
-                    statGrid
-                    calendarCard
-                    badgesCard
-                    MasteryCard(distribution: stats.distribution)
+            List {
+                Section { streakCard }
+                Section("統計") {
+                    statRow("今天練習", stats.studiedToday, "checklist")
+                    statRow("學過的字", stats.learnedTotal, "book.pages")
+                    statRow("精通", stats.masteredTotal, "crown")
+                    statRow("待複習", stats.dueCount, "arrow.triangle.2.circlepath")
                 }
-                .padding(.horizontal, 20).padding(.bottom, 24)
+                Section { calendarCard }
+                Section { badgesCard }
+                Section { MasteryCard(distribution: stats.distribution, boxed: false) }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("我的")
             .themedBackground()
             .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
@@ -48,30 +51,15 @@ struct ProfileTab: View {
             }
             Spacer(minLength: 0)
         }
-        .card()
+        .padding(.vertical, 4)
     }
 
-    private var statGrid: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                statTile("今天練習", stats.studiedToday, "checklist")
-                statTile("學過的字", stats.learnedTotal, "book.pages")
-            }
-            HStack(spacing: 12) {
-                statTile("精通", stats.masteredTotal, "crown")
-                statTile("待複習", stats.dueCount, "arrow.triangle.2.circlepath")
-            }
+    private func statRow(_ title: String, _ n: Int, _ icon: String) -> some View {
+        LabeledContent {
+            Text("\(n)").font(.body.weight(.semibold)).monospacedDigit().contentTransition(.numericText())
+        } label: {
+            Label { Text(title) } icon: { LIcon(icon).foregroundStyle(.tint) }
         }
-    }
-
-    private func statTile(_ title: String, _ n: Int, _ icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            LIcon(icon).font(.headline).foregroundStyle(.tint)
-            Text("\(n)").font(.system(.title).weight(.bold)).contentTransition(.numericText())
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card(padding: 14)
     }
 
     /// The last five weeks as a calendar grid; darker squares mean more words that day.
@@ -105,7 +93,7 @@ struct ProfileTab: View {
                                     .fill(future ? Color.clear : n == 0 ? Color.secondary.opacity(0.10) : Color.themeAccent.opacity(0.25 + 0.75 * Double(n) / Double(top)))
                                     .aspectRatio(1, contentMode: .fit)
                                     .overlay(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
-                                        .strokeBorder(cal.isDate(d, inSameDayAs: chosen) ? Color.primary : (future ? Color.hairline : .clear), lineWidth: 1.5))
+                                        .strokeBorder(cal.isDate(d, inSameDayAs: chosen) ? Color.primary : (future ? Color.secondary.opacity(0.25) : .clear), lineWidth: 1.5))
                                     .overlay {
                                         Text(d.formatted(.dateTime.day())).font(.system(size: 10, weight: .semibold))
                                             .foregroundStyle(n > 0 && Double(n) / Double(top) > 0.4 ? Color.onAccent : Color.secondary)
@@ -125,7 +113,7 @@ struct ProfileTab: View {
             }
             .font(.subheadline)
         }
-        .card()
+        .padding(.vertical, 6)
     }
 
     private var badgesCard: some View {
@@ -142,7 +130,7 @@ struct ProfileTab: View {
                 }
             }
         }
-        .card()
+        .padding(.vertical, 6)
     }
 }
 

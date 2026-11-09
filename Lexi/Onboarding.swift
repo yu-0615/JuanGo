@@ -236,7 +236,7 @@ struct ThemeGrid: View {
                     .background(t.swatch)
                     .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                        .strokeBorder(selection == t.id ? Color.primary : Color.hairline, lineWidth: selection == t.id ? 2 : 1))
+                        .strokeBorder(selection == t.id ? Color.primary : .clear, lineWidth: 2))
                 }.buttonStyle(.plain)
         }
     }

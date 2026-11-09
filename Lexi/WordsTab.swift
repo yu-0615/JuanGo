@@ -23,32 +23,31 @@ struct WordsTab: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                // Filter chips instead of a segmented control.
-                HStack(spacing: 8) {
-                    ForEach([(0, "全部 \(words.count)"), (1, "清單"), (2, "內建字庫")], id: \.0) { k, t in
-                        Button { withAnimation(.snappy) { segment = k } } label: {
-                            Text(t).font(.subheadline.weight(.bold))
-                                .foregroundStyle(segment == k ? Color.onAccent : .primary)
-                                .padding(.horizontal, 14).frame(height: 34)
-                                .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(segment == k ? Color.themeAccent : Color.cardFill))
-                                .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(segment == k ? .clear : Color.hairline))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
+            Group {
                 switch segment {
                 case 0: allWords
                 case 1: myLists
                 default: decks
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Picker("顯示", selection: $segment.animation(.snappy)) {
+                    Text("全部 \(words.count)").tag(0)
+                    Text("清單").tag(1)
+                    Text("內建字庫").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20).padding(.vertical, 8)
+            }
             .navigationTitle("字庫")
             .themedBackground()
             .toolbar {
                 ToolbarItemGroup {
+                    if segment == 0 {
+                        Menu {
+                            Picker("排序", selection: $sort) { ForEach(WordSort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
+                        } label: { Label("排序", pulso: "arrow.up.arrow.down") }
+                    }
                     Button("新增單字", pulso: "plus") { showAdd = true }
                     if segment == 0 {
                         Button(selecting ? "完成" : "選取", pulso: selecting ? "checkmark" : "checklist") {
@@ -115,22 +114,7 @@ struct WordsTab: View {
     }
 
     private var allWords: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                LIcon("magnifyingglass").foregroundStyle(.secondary)
-                TextField("搜尋英文或中文", text: $search)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                Menu {
-                    Picker("排序", selection: $sort) { ForEach(WordSort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
-                } label: {
-                    Label(sort.rawValue, pulso: "arrow.up.arrow.down").font(.footnote.weight(.bold))
-                }
-            }
-            .padding(.horizontal, 14).frame(height: 46)
-            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
-            .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
-            .padding(.horizontal, 20)
-
+        Group {
             if words.isEmpty {
                 EmptyState("還沒有單字", icon: "character.book.closed", message: "到「新增」或「探索」收集第一個單字吧。")
                     .frame(maxHeight: .infinity)
@@ -142,7 +126,7 @@ struct WordsTab: View {
                             Section {
                                 ForEach(groups[day]!.sorted { sort == .newest ? $0.addedAt > $1.addedAt : $0.addedAt < $1.addedAt }) { row($0) }
                             } header: {
-                                Text(dayLabel(day)).font(.system(.subheadline).weight(.bold)).foregroundStyle(.primary).textCase(nil)
+                                Text(dayLabel(day))
                             }
                         }
                     } else {
@@ -150,8 +134,9 @@ struct WordsTab: View {
                     }
                 }
                 .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .contentMargins(.top, 4, for: .scrollContent)
+                .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋英文或中文")
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
             }
         }
     }
@@ -182,7 +167,6 @@ struct WordsTab: View {
         }
         .contentShape(Rectangle())
         .gesture(TapGesture().onEnded { toggleSel(w) }, isEnabled: selecting)
-        .listRowBackground(Color.cardFill)
         .swipeActions {
             Button("刪除", pulso: "trash", role: .destructive) { Library.remove(w, in: ctx) }
             Button(w.favorite ? "取消喜歡" : "喜歡", pulso: "heart") { w.favorite.toggle(); try? ctx.save() }.tint(.pink)
@@ -203,7 +187,7 @@ struct WordsTab: View {
                 .onDelete { idx in idx.map { lists[$0] }.forEach(ctx.delete); try? ctx.save() }
             }
         }
-        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
     }
 
     private var decks: some View {
@@ -222,7 +206,7 @@ struct WordsTab: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
     }
 
     private func listLabel(_ name: String, _ icon: String, _ n: Int) -> some View {
@@ -362,7 +346,7 @@ struct WordDetailView: View {
                         detailTag(levelLabel(cefrToExam[word.cefr] ?? word.cefr))
                         detailTag(levelNames[max(0, min(5, word.srsLevel))])
                     }
-                    Rectangle().fill(Color.hairline).frame(height: 1).padding(.vertical, 4)
+                    Divider().padding(.vertical, 4)
                     ForEach(Array(word.meanings.enumerated()), id: \.offset) { k, m in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\(k + 1)").font(.caption.weight(.bold)).foregroundStyle(.tint).frame(width: 14)
@@ -462,7 +446,6 @@ struct WordDetailView: View {
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
                     .onTapGesture { lookup = LookupTerm(term: e.w) }
                 }
             }

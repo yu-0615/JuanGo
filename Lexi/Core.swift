@@ -364,8 +364,6 @@ extension Color {
     }
     /// Native card surface: white on the parchment background, near-black tile in dark mode.
     static let cardFill = Color(.secondarySystemGroupedBackground)
-    /// DESIGN.md "soft hairline": 1 px at 8 % around utility cards, never a shadow.
-    static let hairline = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.08) : UIColor(white: 0, alpha: 0.08) })
     static let knowGreen = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.33, blue: 0.25, alpha: 1) : UIColor(red: 0.84, green: 0.92, blue: 0.86, alpha: 1) })
     static let unsureYellow = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.38, green: 0.29, blue: 0.13, alpha: 1) : UIColor(red: 0.98, green: 0.90, blue: 0.74, alpha: 1) })
     static let againPink = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.40, green: 0.16, blue: 0.18, alpha: 1) : UIColor(red: 0.97, green: 0.85, blue: 0.84, alpha: 1) })
@@ -386,7 +384,6 @@ struct CardBackground: ViewModifier {
         content.padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.cardFill, in: shape)
-            .overlay(shape.strokeBorder(Color.hairline, lineWidth: 1))
             .containerShape(shape)   // nested ConcentricRectangle shapes follow this card's corners
     }
 }

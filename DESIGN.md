@@ -278,7 +278,9 @@ components:
 This file comes from `npx getdesign@latest add apple` (Apple's web design language). Lexi is a native iOS 26 app, so it follows the rules below and uses native SwiftUI wherever it can:
 
 - **One accent colour**: the theme colour (`Color.themeAccent`, phoenix red #A3162E by default; the 天空藍 theme is Action Blue #0066CC). No second brand colour, no decorative gradients.
-- **Surfaces**: native `systemGroupedBackground` (parchment) for pages and `secondarySystemGroupedBackground` for cards, with a 1 px 8 % hairline and no shadow. The one shadow is on the onboarding dictionary card, an object resting on a surface.
+- **Native containers first**: pages that are lists of things (今天、新增、字庫、我的、設定) are `List` with `.insetGrouped` sections, and each section is the card. Hand-made cards (`.card()`) are only for content that isn't a list (quiz cards, the explore deck).
+- **Search** is always the system `.searchable` bar (`navigationBarDrawer(displayMode: .always)`), never a hand-drawn text box. Filters are a native segmented `Picker`, and sorting is a toolbar `Menu`.
+- **No border lines**: cards and fields have no strokes. Separation comes from the grouped background colours (`systemGroupedBackground` / `secondarySystemGroupedBackground`). The only outline is a focus or current-letter ring in the accent colour. The one shadow is on the onboarding dictionary card, an object resting on a surface.
 - **Radius grammar** (`Radius` in Core.swift): `sm` 8 for compact utility, `md` 11 (rare), `lg` 18 for cards and tiles. Actions are pills (`.capsule`) and floating icon buttons are circles.
 - **Buttons are native**: `PillButtonStyle` wraps `.glassProminent` / `.glass` with `.buttonBorderShape`, `.buttonSizing(.flexible)` and `.controlSize(.large)`. Selectable tiles use `ChoiceTileStyle`. Toolbars use `Button(role: .confirm/.cancel)`.
 - **Type**: the system font (SF Pro). Headlines are semibold (600), never heavy or black. Navigation titles are native.

@@ -28,21 +28,39 @@ struct ImportTab: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 14) {
-                searchBar
-                if focused || !query.isEmpty {
+            List {
+                if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                     suggestionList
                 } else {
-                    sourceTiles
-                    Text("最近新增").font(.system(.title3).weight(.bold)).padding(.top, 6)
-                    recentList
-                }
-                if let toast {
-                    Toast(text: toast, action: nil) { withAnimation { self.toast = nil } }
+                    Section {
+                        Picker(selection: $destination) {
+                            Text("我的單字").tag(WordList?.none)
+                            ForEach(lists) { l in Text(l.name).tag(WordList?.some(l)) }
+                        } label: {
+                            Label { Text("存到") } icon: { LIcon("folder").foregroundStyle(.tint) }
+                        }
+                    } footer: {
+                        Text("在上方搜尋英文單字或中文意思，查到的字會存進這裡。")
+                    }
+                    Section("其他加入方式") {
+                        sourceRow("拍照掃描", "camera.viewfinder") { showCamera = true }
+                        sourceRow("從相簿選照片", "photo.stack") { showPhotoPicker = true }
+                        sourceRow("匯入檔案（txt、csv）", "doc.text") { showFileImporter = true }
+                    }
+                    Section("最近新增") { recentList }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
+            .listStyle(.insetGrouped)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "輸入英文單字或中文意思")
+            .searchFocused($focused)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .onSubmit(of: .search) { submit() }
+            .safeAreaInset(edge: .bottom) {
+                if let toast {
+                    Toast(text: toast, action: nil) { withAnimation { self.toast = nil } }.padding(.horizontal, 20)
+                }
+            }
             .overlay { if busy { ProgressView("正在辨識文字…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: Radius.lg)) } }
             .navigationTitle("新增")
             .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
@@ -88,136 +106,54 @@ struct ImportTab: View {
         }
     }
 
-    /// A boxed field with the destination picker written out underneath.
-    private var searchBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                LIcon("text.cursor").font(.headline).foregroundStyle(.tint)
-                TextField("輸入英文單字或中文意思", text: $query)
-                    .font(.system(size: 18, weight: .medium))
-                    .focused($focused)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.search)
-                    .onSubmit { submit() }
-                if !query.isEmpty {
-                    Button { query = "" } label: { LIcon("xmark.circle.fill") }.foregroundStyle(.secondary)
-                }
-                Button(action: submit) {
-                    LIcon("arrow.right").font(.headline).foregroundStyle(Color.onAccent)
-                        .frame(width: 36, height: 36).background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent))
-                }
-                .disabled(query.isEmpty).opacity(query.isEmpty ? 0.4 : 1)
-            }
-            .padding(.leading, 14).padding(.trailing, 8).frame(height: 54)
-            .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
-            .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
-            Menu {
-                Button { destination = nil } label: { Label("我的單字", pulso: destination == nil ? "checkmark" : "character.book.closed") }
-                ForEach(lists) { l in
-                    Button { destination = l } label: { Label(l.name, pulso: destination == l ? "checkmark" : "folder") }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text("存到").foregroundStyle(.secondary)
-                    Text(destination?.name ?? "我的單字").fontWeight(.bold)
-                    LIcon("chevron.up.chevron.down").font(.caption2)
-                }
-                .font(.footnote)
-            }
-            .padding(.leading, 4)
-        }
-    }
-
-    /// Three ways to bring words in, as equal tiles.
-    private var sourceTiles: some View {
-        HStack(spacing: 10) {
-            sourceTile("拍照掃描", "camera.viewfinder") { showCamera = true }
-            sourceTile("從相簿", "photo.stack") { showPhotoPicker = true }
-            sourceTile("匯入檔案", "doc.text") { showFileImporter = true }
-        }
-    }
-
-    private func sourceTile(_ t: String, _ icon: String, action: @escaping () -> Void) -> some View {
+    private func sourceRow(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 10) {
-                LIcon(icon).font(.title2.weight(.semibold)).foregroundStyle(.tint)
-                    .frame(width: 48, height: 48).background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.1)))
-                Text(t).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-            }
-            .frame(maxWidth: .infinity)
-            .card(padding: 14)
+            Label { Text(title).foregroundStyle(.primary) } icon: { LIcon(icon).foregroundStyle(.tint) }
         }
-        .buttonStyle(.plain)
     }
 
-    private var suggestionList: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text("輸入英文單字或中文意思").font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 14)
-                }
-                ForEach(suggestions) { e in
-                    Button { lookup = LookupTerm(term: e.w) } label: {
-                        HStack {
-                            Text(e.w).font(.headline)
-                            Text(e.zh.first ?? "").foregroundStyle(.secondary)
-                            Spacer()
-                            if Library.word(e.w, in: ctx) != nil { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
-                            LIcon("chevron.right").foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 12).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                    Divider()
-                }
-                if !query.trimmingCharacters(in: .whitespaces).isEmpty && suggestions.first?.w != query.lowercased() {
-                    Button(action: submit) {
-                        Label("查詢 \(query)", pulso: "magnifyingglass").font(.headline).foregroundStyle(.tint)
-                            .padding(.vertical, 12)
-                    }.buttonStyle(.plain)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-        }
-        .frame(maxHeight: .infinity)
-        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
-        .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(Color.hairline))
-    }
-
-    /// Recently added words as a wrap of small chips; long-press to delete.
-    private var recentList: some View {
-        ScrollView {
-            if recent.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("還沒有新增任何字").font(.headline)
-                    Text("在上方輸入，或拍下課本、講義、螢幕截圖。").font(.subheadline).foregroundStyle(.secondary)
-                }
-                .card()
-            } else {
-                FlowLayout(spacing: 8, lineSpacing: 8) {
-                    ForEach(recent.prefix(60)) { w in
-                        Button { detail = w } label: {
-                            HStack(spacing: 6) {
-                                Text(w.term).font(.subheadline.weight(.bold))
-                                Text(w.primaryMeaning).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                            .padding(.horizontal, 12).padding(.vertical, 8)
-                            .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
-                            .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).strokeBorder(Color.hairline))
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("念出來", pulso: "speaker.wave.2") { Speech.say(w.term) }
-                            Button("刪除", pulso: "trash", role: .destructive) { Library.remove(w, in: ctx) }
-                        }
+    @ViewBuilder private var suggestionList: some View {
+        Section {
+            ForEach(suggestions) { e in
+                Button { lookup = LookupTerm(term: e.w) } label: {
+                    HStack {
+                        Text(e.w).font(.headline).foregroundStyle(.primary)
+                        Text(e.zh.first ?? "").foregroundStyle(.secondary).lineLimit(1)
+                        Spacer()
+                        if Library.word(e.w, in: ctx) != nil { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if suggestions.first?.w != query.lowercased() {
+                Button(action: submit) {
+                    Label { Text("查詢「\(query)」") } icon: { LIcon("magnifyingglass") }
+                }
             }
         }
-        .scrollIndicators(.hidden)
-        .frame(maxHeight: .infinity)
+    }
+
+    /// Recently added words; swipe or long-press to delete.
+    @ViewBuilder private var recentList: some View {
+        if recent.isEmpty {
+            Text("還沒有新增任何字。在上方搜尋，或拍下課本、講義、螢幕截圖。").font(.subheadline).foregroundStyle(.secondary)
+        } else {
+            ForEach(recent.prefix(60)) { w in
+                Button { detail = w } label: {
+                    LabeledContent {
+                        Text(w.primaryMeaning).lineLimit(1)
+                    } label: {
+                        Text(w.term).foregroundStyle(.primary)
+                    }
+                }
+                .swipeActions {
+                    Button("刪除", pulso: "trash", role: .destructive) { Library.remove(w, in: ctx) }
+                }
+                .contextMenu {
+                    Button("念出來", pulso: "speaker.wave.2") { Speech.say(w.term) }
+                    Button("刪除", pulso: "trash", role: .destructive) { Library.remove(w, in: ctx) }
+                }
+            }
+        }
     }
 
     private func submit() {
