@@ -1,0 +1,24 @@
+{
+  "originHash" : "1503945ceb02aacae01c9c544b2a5aecf44c30c974e84473db4e48dfdf237035",
+  "pins" : [
+    {
+      "identity" : "pulsoicon",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CityPulso/PulsoIcon.git",
+      "state" : {
+        "revision" : "50e5aa200f19030e8de4c53a392b23ba496f7b60",
+        "version" : "6.1.0"
+      }
+    },
+    {
+      "identity" : "svgpath",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nicklockwood/SVGPath.git",
+      "state" : {
+        "revision" : "892e57b71c26937863a53a7459051ef329cfd6b4",
+        "version" : "1.3.1"
+      }
+    }
+  ],
+  "version" : 3
+}

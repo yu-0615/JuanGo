@@ -1,0 +1,568 @@
+import SwiftUI
+import SwiftData
+import AVFoundation
+import UserNotifications
+
+// MARK: - SwiftData models
+
+@Model final class Word {
+    @Attribute(.unique) var term: String
+    var ipa: String
+    var pos: String
+    var meanings: [String]
+    var definition: String
+    var example: String
+    var exampleZh: String
+    var cefr: String
+    /// 0 = never studied, 1...5 = mastery level
+    var srsLevel: Int
+    var dueDate: Date?
+    var lastReviewed: Date?
+    var addedAt: Date
+    var favorite: Bool
+    var inMyWords: Bool
+    var reviewCount: Int
+    var lists: [WordList] = []
+
+    init(entry: DictEntry, meanings: [String]? = nil) {
+        term = entry.w
+        ipa = entry.ipa
+        pos = entry.pos
+        self.meanings = meanings ?? entry.zh
+        definition = entry.def
+        example = entry.ex
+        exampleZh = entry.exZh
+        cefr = entry.lv
+        srsLevel = 0
+        addedAt = .now
+        favorite = false
+        inMyWords = true
+        reviewCount = 0
+    }
+
+    var primaryMeaning: String { meanings.first ?? "—" }
+    var meaningLine: String { meanings.joined(separator: " · ") }
+    var isNew: Bool { srsLevel == 0 }
+    var isDue: Bool { !isNew && (dueDate ?? .distantPast) <= .now }
+    var isMastered: Bool { srsLevel >= 5 }
+}
+
+@Model final class WordList {
+    var name: String
+    var createdAt: Date
+    @Relationship(deleteRule: .nullify, inverse: \Word.lists) var words: [Word] = []
+    init(name: String) { self.name = name; createdAt = .now }
+}
+
+@Model final class ReviewLog {
+    var term: String
+    var date: Date
+    /// 0 again, 1 unsure, 2 good
+    var result: Int
+    var wasNew: Bool
+    init(term: String, result: Int, wasNew: Bool) {
+        self.term = term; self.result = result; self.wasNew = wasNew; date = .now
+    }
+}
+
+// MARK: - Built-in dictionary
+
+struct DictEntry: Codable, Hashable, Identifiable {
+    var w: String
+    var ipa: String
+    var pos: String
+    var zh: [String]
+    var def: String
+    var ex: String
+    var exZh: String
+    /// 大考中心 level "1"..."6"
+    var lv: String
+    /// spelling variants / short forms (e.g. phone for telephone)
+    var alt: [String]? = nil
+    var id: String { w }
+    /// "v./(n.)" -> ["v.", "n."]
+    var posTags: [String] { pos.split(separator: "/").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "() ")) } }
+
+    static func custom(_ term: String, meaning: String) -> DictEntry {
+        DictEntry(w: term.lowercased(), ipa: "", pos: "", zh: meaning.isEmpty ? [] : [meaning],
+                  def: "", ex: "", exZh: "", lv: "—")
+    }
+}
+
+enum Deck: String, CaseIterable, Identifiable {
+    case recommended = "推薦探索", basic = "基礎 2000", middle = "進階 4000", advanced = "學測 6000+"
+    var id: String { rawValue }
+    var subtitle: String {
+        switch self {
+        case .recommended: "依你的程度推薦"
+        case .basic: "大考詞彙第 1–2 級"
+        case .middle: "大考詞彙第 3–4 級"
+        case .advanced: "大考詞彙第 5–6 級"
+        }
+    }
+    var levels: [String] {
+        switch self {
+        case .recommended: examLevels
+        case .basic: ["1", "2"]
+        case .middle: ["3", "4"]
+        case .advanced: ["5", "6"]
+        }
+    }
+    func contains(_ e: DictEntry) -> Bool { levels.contains(e.lv) }
+    static var studyDecks: [Deck] { [.basic, .middle, .advanced] }
+}
+
+/// 大考中心《高中英文參考詞彙表》levels.
+let examLevels = ["1", "2", "3", "4", "5", "6"]
+func levelLabel(_ lv: String) -> String { examLevels.contains(lv) ? "第\(lv)級" : lv }
+/// Words saved before the 7000-word list used CEFR levels.
+let cefrToExam = ["A1": "1", "A2": "2", "B1": "3", "B2": "4", "C1": "5", "C2": "6"]
+
+enum Dictionary_ {
+    static let all: [DictEntry] = {
+        guard let url = Bundle.main.url(forResource: "words", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let list = try? JSONDecoder().decode([DictEntry].self, from: data) else { return [] }
+        return list
+    }()
+    private static let index: [String: DictEntry] = {
+        var m = [String: DictEntry]()
+        for e in all { m[e.w.lowercased()] = m[e.w.lowercased()] ?? e }
+        for e in all { for a in e.alt ?? [] where m[a.lowercased()] == nil { m[a.lowercased()] = e } }
+        return m
+    }()
+    private static let irregular = ["went": "go", "gone": "go", "was": "be", "were": "be", "been": "be", "is": "be", "are": "be",
+        "had": "have", "has": "have", "did": "do", "does": "do", "done": "do", "made": "make", "said": "say", "took": "take",
+        "taken": "take", "came": "come", "saw": "see", "seen": "see", "got": "get", "gotten": "get", "gave": "give", "given": "give",
+        "knew": "know", "known": "know", "thought": "think", "told": "tell", "found": "find", "left": "leave", "felt": "feel",
+        "brought": "bring", "bought": "buy", "began": "begin", "begun": "begin", "kept": "keep", "held": "hold", "wrote": "write",
+        "written": "write", "stood": "stand", "heard": "hear", "meant": "mean", "met": "meet", "ran": "run", "paid": "pay",
+        "sat": "sit", "spoke": "speak", "spoken": "speak", "led": "lead", "grew": "grow", "grown": "grow", "lost": "lose",
+        "fell": "fall", "fallen": "fall", "sent": "send", "built": "build", "understood": "understand", "drew": "draw",
+        "broke": "break", "broken": "break", "spent": "spend", "rose": "rise", "drove": "drive", "driven": "drive", "ate": "eat",
+        "eaten": "eat", "chose": "choose", "chosen": "choose", "wore": "wear", "worn": "wear", "children": "child", "men": "man",
+        "women": "woman", "people": "person", "feet": "foot", "teeth": "tooth", "mice": "mouse", "better": "good", "best": "good",
+        "worse": "bad", "worst": "bad", "taught": "teach", "caught": "catch", "fought": "fight", "flew": "fly", "slept": "sleep",
+        "threw": "throw", "thrown": "throw", "sold": "sell", "won": "win", "sang": "sing", "swam": "swim", "drank": "drink",
+        "lives": "life", "leaves": "leaf", "wives": "wife", "knives": "knife", "halves": "half", "shelves": "shelf", "wolves": "wolf",
+        "thieves": "thief", "loaves": "loaf", "geese": "goose", "data": "datum", "criteria": "criterion", "phenomena": "phenomenon",
+        "analyses": "analysis", "crises": "crisis", "hid": "hide", "hidden": "hide", "lay": "lie", "lain": "lie", "laid": "lay",
+        "rode": "ride", "ridden": "ride", "shook": "shake", "shaken": "shake", "stole": "steal", "stolen": "steal", "struck": "strike",
+        "swore": "swear", "sworn": "swear", "tore": "tear", "torn": "tear", "woke": "wake", "woken": "wake", "wove": "weave",
+        "bent": "bend", "bled": "bleed", "bred": "breed", "dealt": "deal", "dug": "dig", "fed": "feed", "fled": "flee", "hung": "hang",
+        "lent": "lend", "lit": "light", "sought": "seek", "shot": "shoot", "slid": "slide", "spun": "spin", "stuck": "stick",
+        "stung": "sting", "swept": "sweep", "swung": "swing", "wept": "weep", "wound": "wind", "arose": "arise", "arisen": "arise",
+        "forgot": "forget", "forgotten": "forget", "forgave": "forgive", "forgiven": "forgive", "froze": "freeze", "frozen": "freeze",
+        "mistook": "mistake", "mistaken": "mistake", "overcame": "overcome", "withdrew": "withdraw", "withdrawn": "withdraw"]
+
+    private static let byMeaning: [String: [DictEntry]] = {
+        var m: [String: [DictEntry]] = [:]
+        for e in all { for z in e.zh { m[z, default: []].append(e) } }
+        return m
+    }()
+
+    /// 同義字: other list words that share a Chinese meaning, same part of speech first.
+    static func synonyms(of term: String, meanings: [String], pos: String, limit: Int = 4) -> [DictEntry] {
+        let tags = Set(pos.split(separator: "/").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "() ")) })
+        var score: [String: (e: DictEntry, n: Int)] = [:]
+        for z in meanings { for e in byMeaning[z] ?? [] where e.w != term { score[e.w, default: (e, 0)].n += 1 } }
+        return score.values.sorted { a, b in
+            let pa = tags.isDisjoint(with: a.e.posTags) ? 0 : 1, pb = tags.isDisjoint(with: b.e.posTags) ? 0 : 1
+            return (pa, a.n, b.e.w) > (pb, b.n, a.e.w)
+        }.prefix(limit).map(\.e)
+    }
+
+    static func lookup(_ term: String) -> DictEntry? {
+        let t = term.lowercased().replacingOccurrences(of: "'", with: "’")
+            .trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if let e = index[t] ?? index[t.replacingOccurrences(of: "’", with: "'")] { return e }
+        if let base = irregular[t], let e = index[base] { return e }
+        if t.hasSuffix("ies"), let e = index[String(t.dropLast(3)) + "y"] { return e }
+        if t.hasSuffix("ied"), let e = index[String(t.dropLast(3)) + "y"] { return e }
+        // naive lemmatization for plurals / tenses
+        for suffix in ["s", "es", "ed", "d", "ing", "ly", "er", "est"] where t.hasSuffix(suffix) && t.count > suffix.count + 2 {
+            let stem = String(t.dropLast(suffix.count))
+            if let e = index[stem] ?? index[stem + "e"] { return e }
+            if let last = stem.last, stem.dropLast().last == last, let e = index[String(stem.dropLast())] { return e } // stopped, running
+        }
+        return nil
+    }
+    static func contains(_ term: String) -> Bool { lookup(term) != nil }
+
+
+    static func suggestions(for query: String, limit: Int = 8) -> [DictEntry] {
+        let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return [] }
+        if q.unicodeScalars.contains(where: { $0.value > 0x2E80 }) {
+            let exact = all.filter { $0.zh.contains { $0 == q || $0 == q + "的" } }
+            let partial = all.filter { e in !exact.contains(e) && e.zh.contains { $0.contains(q) } }
+            return Array((exact + partial).prefix(limit))
+        }
+        let prefix = all.filter { $0.w.lowercased().hasPrefix(q) }.sorted { $0.w.count < $1.w.count }
+        let inner = all.filter { !$0.w.lowercased().hasPrefix(q) && $0.w.lowercased().contains(q) }
+        return Array((prefix + inner).prefix(limit))
+    }
+
+    static func entries(level: String) -> [DictEntry] { all.filter { $0.lv == level } }
+}
+
+// MARK: - Spaced repetition
+
+enum Grade: Int { case again = 0, unsure = 1, good = 2 }
+
+enum SRS {
+    /// days until next review after reaching level n (index = level)
+    static let intervals: [Double] = [0, 1, 2, 4, 7, 15, 30]
+
+    static func apply(_ grade: Grade, to word: Word, now: Date = .now) {
+        switch grade {
+        case .good:
+            let wasMastered = word.srsLevel >= 5
+            word.srsLevel = min(5, word.srsLevel + 1)
+            let days = wasMastered ? intervals[6] : intervals[word.srsLevel]
+            word.dueDate = now.addingTimeInterval(days * 86_400)
+        case .unsure:
+            word.srsLevel = max(1, word.srsLevel)
+            word.dueDate = now.addingTimeInterval(86_400)
+        case .again:
+            word.srsLevel = max(1, word.srsLevel - 1)
+            word.dueDate = now.addingTimeInterval(20 * 60)
+        }
+        word.lastReviewed = now
+        word.reviewCount += 1
+    }
+}
+
+// MARK: - Settings
+
+@Observable final class AppSettings {
+    static let shared = AppSettings()
+    @ObservationIgnored private let d = UserDefaults.standard
+
+    var onboarded: Bool { didSet { d.set(onboarded, forKey: "onboarded") } }
+    var language: String { didSet { d.set(language, forKey: "language") } }
+    var level: String { didSet { d.set(level, forKey: "level") } }
+    var dailyGoal: Int { didSet { d.set(dailyGoal, forKey: "dailyGoal") } }
+    var reminderOn: Bool { didSet { d.set(reminderOn, forKey: "reminderOn"); Reminders.sync(self) } }
+    var reminderMinutes: Int { didSet { d.set(reminderMinutes, forKey: "reminderMinutes"); Reminders.sync(self) } }
+    var reminderAsked: Bool { didSet { d.set(reminderAsked, forKey: "reminderAsked") } }
+    var appearance: Int { didSet { d.set(appearance, forKey: "appearance") } }
+    var fontStyle: Int { didSet { d.set(fontStyle, forKey: "fontStyle") } }
+    var themeID: String { didSet { d.set(themeID, forKey: "themeID") } }
+    var muted: Bool { didSet { d.set(muted, forKey: "muted") } }
+    var showTranslation: Bool { didSet { d.set(showTranslation, forKey: "showTranslation") } }
+    var haptics: Bool { didSet { d.set(haptics, forKey: "haptics") } }
+    var speechRate: Double { didSet { d.set(speechRate, forKey: "speechRate") } }
+    var exploreTipsDone: Bool { didSet { d.set(exploreTipsDone, forKey: "exploreTipsDone") } }
+    var studyRulesSeen: Bool { didSet { d.set(studyRulesSeen, forKey: "studyRulesSeen") } }
+    var listShowMeaning: Bool { didSet { d.set(listShowMeaning, forKey: "listShowMeaning") } }
+    var detailAutoSpeak: Bool { didSet { d.set(detailAutoSpeak, forKey: "detailAutoSpeak") } }
+    var exploreShowIPA: Bool { didSet { d.set(exploreShowIPA, forKey: "exploreShowIPA") } }
+
+    init() {
+        d.register(defaults: ["language": "zh-Hant", "level": "3", "dailyGoal": 10, "reminderMinutes": 20 * 60,
+                              "themeID": "phoenix", "fontStyle": 0, "showTranslation": true, "haptics": true,
+                              "speechRate": 0.45, "listShowMeaning": true, "exploreShowIPA": true])
+        onboarded = d.bool(forKey: "onboarded")
+        language = d.string(forKey: "language")!
+        let storedLevel = d.string(forKey: "level")!
+        level = cefrToExam[storedLevel] ?? storedLevel
+        dailyGoal = d.integer(forKey: "dailyGoal")
+        reminderOn = d.bool(forKey: "reminderOn")
+        reminderMinutes = d.integer(forKey: "reminderMinutes")
+        reminderAsked = d.bool(forKey: "reminderAsked")
+        appearance = d.integer(forKey: "appearance")
+        fontStyle = d.integer(forKey: "fontStyle")
+        themeID = d.string(forKey: "themeID")!
+        muted = d.bool(forKey: "muted")
+        showTranslation = d.bool(forKey: "showTranslation")
+        haptics = d.bool(forKey: "haptics")
+        speechRate = d.double(forKey: "speechRate")
+        exploreTipsDone = d.bool(forKey: "exploreTipsDone")
+        studyRulesSeen = d.bool(forKey: "studyRulesSeen")
+        listShowMeaning = d.bool(forKey: "listShowMeaning")
+        detailAutoSpeak = d.bool(forKey: "detailAutoSpeak")
+        exploreShowIPA = d.bool(forKey: "exploreShowIPA")
+    }
+
+    var theme: AppTheme { AppTheme.all.first { $0.id == themeID } ?? AppTheme.all[0] }
+    var colorScheme: ColorScheme? { appearance == 1 ? .light : appearance == 2 ? .dark : nil }
+    var fontDesign: Font.Design { [.default, .rounded, .serif, .monospaced][min(3, max(0, fontStyle))] }
+    var reminderDate: Date {
+        get { Calendar.current.date(bySettingHour: reminderMinutes / 60, minute: reminderMinutes % 60, second: 0, of: .now)! }
+        set { let c = Calendar.current.dateComponents([.hour, .minute], from: newValue); reminderMinutes = c.hour! * 60 + c.minute! }
+    }
+    var reminderText: String { String(format: "%d:%02d", reminderMinutes / 60, reminderMinutes % 60) }
+}
+
+enum Reminders {
+    static func sync(_ s: AppSettings) {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["daily"])
+        guard s.reminderOn else { return }
+        let minutes = s.reminderMinutes
+        Task {
+            let ok = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            guard ok else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "該複習單字囉"
+            content.body = "花幾分鐘把今天到期的字複習完，別讓剛學的字又忘光。"
+            content.sound = .default
+            var comps = DateComponents(); comps.hour = minutes / 60; comps.minute = minutes % 60
+            let req = UNNotificationRequest(identifier: "daily", content: content,
+                                            trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: true))
+            try? await center.add(req)
+        }
+    }
+}
+
+// MARK: - Theme
+
+struct AppTheme: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let accentHex: UInt32
+    let bgHex: UInt32
+
+    /// In dark mode the accent is lifted towards white so it stays readable on the dark paper.
+    var accent: Color {
+        Color(UIColor { t in
+            let base = UIColor(Color(hex: accentHex))
+            return t.userInterfaceStyle == .dark ? base.mix(with: .white, by: 0.38) : base
+        })
+    }
+    /// Lexi's pages sit on warm "paper": a tinted cream in light mode, a warm charcoal in dark mode.
+    var background: Color {
+        Color(UIColor { t in
+            t.userInterfaceStyle == .dark ? UIColor(Color(hex: 0x17130F)).mix(with: UIColor(Color(hex: accentHex)), by: 0.08)
+                                          : UIColor(Color(hex: bgHex))
+        })
+    }
+
+    /// Lexi's own palette, built around the phoenix-red logo.
+    static let all: [AppTheme] = [
+        .init(id: "phoenix", name: "鳳凰紅", accentHex: 0xA3162E, bgHex: 0xF8F2EA),
+        .init(id: "amber", name: "琥珀", accentHex: 0xB0661A, bgHex: 0xF9F1E3),
+        .init(id: "pine", name: "松針", accentHex: 0x2F6B4F, bgHex: 0xF1F3EA),
+        .init(id: "ink", name: "墨藍", accentHex: 0x24407A, bgHex: 0xF1F1F0),
+        .init(id: "plum", name: "梅子", accentHex: 0x7A2C5C, bgHex: 0xF7EFF0),
+        .init(id: "graphite", name: "石墨", accentHex: 0x3B3A38, bgHex: 0xF4F2EE),
+    ]
+}
+
+extension UIColor {
+    func mix(with other: UIColor, by t: CGFloat) -> UIColor {
+        var (r1, g1, b1, a1, r2, g2, b2, a2): (CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0, 0, 0, 0, 0)
+        getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return UIColor(red: r1 + (r2 - r1) * t, green: g1 + (g2 - g1) * t, blue: b1 + (b2 - b1) * t, alpha: 1)
+    }
+}
+
+extension Color {
+    init(hex: UInt32) {
+        self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)
+    }
+    static let cardFill = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.06) : UIColor(white: 1, alpha: 1) })
+    /// Hairline used around Lexi's cards instead of soft shadows.
+    static let hairline = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.10) : UIColor(red: 0.42, green: 0.30, blue: 0.20, alpha: 0.12) })
+    /// Second brand colour (the phoenix's flame): streaks, achievements, highlights.
+    static let ember = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.98, green: 0.72, blue: 0.36, alpha: 1) : UIColor(red: 0.89, green: 0.57, blue: 0.14, alpha: 1) })
+    static let knowGreen = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.33, blue: 0.25, alpha: 1) : UIColor(red: 0.84, green: 0.92, blue: 0.86, alpha: 1) })
+    static let unsureYellow = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.38, green: 0.29, blue: 0.13, alpha: 1) : UIColor(red: 0.98, green: 0.90, blue: 0.74, alpha: 1) })
+    static let againPink = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.40, green: 0.16, blue: 0.18, alpha: 1) : UIColor(red: 0.97, green: 0.85, blue: 0.84, alpha: 1) })
+}
+
+struct CardBackground: ViewModifier {
+    var padding: CGFloat = 18
+    var radius: CGFloat = 16
+    func body(content: Content) -> some View {
+        content.padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(Color.cardFill))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.hairline, lineWidth: 1))
+    }
+}
+
+extension View {
+    func card(padding: CGFloat = 18, radius: CGFloat = 16) -> some View { modifier(CardBackground(padding: padding, radius: radius)) }
+}
+
+/// Lexi's button: a rounded rectangle (never a capsule), at least 44 pt tall as the HIG asks.
+/// `glass: true` is for the main action on a screen: an iOS 26 Liquid Glass button tinted with the theme colour.
+struct PillButtonStyle: ButtonStyle {
+    var fill: Color = .cardFill
+    var foreground: Color = .primary
+    var height: CGFloat = 52
+    var radius: CGFloat = 14
+    var glass = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        PillButtonBody(configuration: configuration, style: self)
+    }
+}
+
+private struct PillButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let style: PillButtonStyle
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: style.radius, style: .continuous)
+        let label = configuration.label
+            .font(.headline)
+            .foregroundStyle(style.foreground)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: max(44, style.height))
+            .contentShape(shape)
+        Group {
+            if style.glass {
+                label.glassEffect(.regular.tint(style.fill).interactive(), in: shape)
+            } else {
+                label.background(shape.fill(style.fill))
+                    .overlay(shape.strokeBorder(Color.hairline, lineWidth: 1))
+            }
+        }
+        .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
+        .scaleEffect(configuration.isPressed ? 0.97 : 1)
+        .animation(.spring(duration: 0.25, bounce: 0.3), value: configuration.isPressed)
+        .hoverEffect(.highlight)
+    }
+}
+
+// MARK: - Speech
+
+@MainActor enum Speech {
+    private static let synth = AVSpeechSynthesizer()
+    private static var voice: AVSpeechSynthesisVoice?
+    /// Latest request while the voice is still loading (only the newest one is spoken).
+    private static var pending: (text: String, rate: Double?)?
+
+    static func say(_ text: String, rate: Double? = nil) {
+        guard !text.isEmpty else { return }
+        guard voice != nil else {
+            // Looking up a voice the first time can block on the main thread forever
+            // (seen when 探索 speaks its first card during launch), so load it in the background.
+            let loading = pending != nil
+            pending = (text, rate)
+            if !loading {
+                Task.detached(priority: .userInitiated) {
+                    let v = AVSpeechSynthesisVoice(language: "en-US")
+                    await MainActor.run {
+                        voice = v ?? AVSpeechSynthesisVoice()
+                        if let p = pending { pending = nil; say(p.text, rate: p.rate) }
+                    }
+                }
+            }
+            return
+        }
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
+        synth.stopSpeaking(at: .immediate)
+        let u = AVSpeechUtterance(string: text)
+        u.voice = voice
+        u.rate = Float(rate ?? AppSettings.shared.speechRate)
+        synth.speak(u)
+    }
+}
+
+// MARK: - Library helpers
+
+enum Library {
+    static func word(_ term: String, in ctx: ModelContext) -> Word? {
+        let t = term.lowercased()
+        var fd = FetchDescriptor<Word>(predicate: #Predicate { $0.term == t })
+        fd.fetchLimit = 1
+        return try? ctx.fetch(fd).first
+    }
+
+    @discardableResult
+    static func add(_ entry: DictEntry, meanings: [String]? = nil, to list: WordList? = nil, myWords: Bool = true, in ctx: ModelContext) -> Word {
+        let entry = ExampleStore.shared.filled(entry)
+        let w: Word
+        if let existing = word(entry.w, in: ctx) {
+            w = existing
+            if let meanings, !meanings.isEmpty { w.meanings = meanings }
+            if myWords { w.inMyWords = true }
+        } else {
+            w = Word(entry: entry, meanings: meanings)
+            w.inMyWords = myWords
+            ctx.insert(w)
+        }
+        if let list, !w.lists.contains(where: { $0.persistentModelID == list.persistentModelID }) {
+            w.lists.append(list)
+        }
+        try? ctx.save()
+        return w
+    }
+
+    static func remove(_ w: Word, in ctx: ModelContext) {
+        ctx.delete(w)
+        try? ctx.save()
+    }
+}
+
+// MARK: - Stats
+
+struct Stats {
+    let logs: [ReviewLog]
+    let words: [Word]
+
+    private var cal: Calendar { .current }
+    var activeDays: Set<Date> { Set(logs.map { cal.startOfDay(for: $0.date) }) }
+
+    var streak: Int {
+        var day = cal.startOfDay(for: .now)
+        let days = activeDays
+        if !days.contains(day) { day = cal.date(byAdding: .day, value: -1, to: day)! }
+        var n = 0
+        while days.contains(day) { n += 1; day = cal.date(byAdding: .day, value: -1, to: day)! }
+        return n
+    }
+    var todayLogs: [ReviewLog] { logs.filter { cal.isDateInToday($0.date) } }
+    var newToday: Int { Set(todayLogs.filter(\.wasNew).map(\.term)).count }
+    var studiedToday: Int { Set(todayLogs.map(\.term)).count }
+    var learnedTotal: Int { words.filter { $0.srsLevel > 0 }.count }
+    var masteredTotal: Int { words.filter(\.isMastered).count }
+    var dueCount: Int { words.filter(\.isDue).count }
+    var distribution: [Int] { (0...5).map { lv in words.filter { $0.srsLevel == lv }.count } }
+
+    func count(on day: Date) -> Int { Set(logs.filter { cal.isDate($0.date, inSameDayAs: day) }.map(\.term)).count }
+}
+
+struct BadgeKind: Identifiable {
+    let id: String
+    let title: String
+    let symbol: String
+    let tiers: [Int]
+    func next(for value: Int) -> Int { tiers.first { $0 > value } ?? tiers.last! }
+    func earned(for value: Int) -> Int { tiers.filter { value >= $0 }.count }
+
+    static let all: [BadgeKind] = [
+        .init(id: "streak", title: "連續天數", symbol: "flame.fill", tiers: [3, 7, 30, 100, 365]),
+        .init(id: "imported", title: "匯入單字", symbol: "square.and.arrow.down.fill", tiers: [100, 500, 1000, 3000]),
+        .init(id: "learned", title: "學過單字", symbol: "book.fill", tiers: [100, 500, 1000, 3000]),
+        .init(id: "mastered", title: "學會單字", symbol: "checkmark.seal.fill", tiers: [10, 50, 200, 1000]),
+    ]
+
+    static func value(_ id: String, stats: Stats) -> Int {
+        switch id {
+        case "streak": stats.streak
+        case "imported": stats.words.count
+        case "learned": stats.learnedTotal
+        default: stats.masteredTotal
+        }
+    }
+}
+
+extension ShapeStyle where Self == Color {
+    /// The current theme's accent. `Color.accentColor` only reflects the asset catalog
+    /// colour inside presented screens, so views read the theme directly instead.
+    static var themeAccent: Color { AppSettings.shared.theme.accent }
+    /// Text on an accent fill: white on the deep light-mode accent, near-black on the pastel dark-mode one.
+    static var onAccent: Color { Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.08, alpha: 1) : .white }) }
+}
+
+extension Locale {
+    /// The UI is Traditional Chinese regardless of the device language, so dates follow it too.
+    static let zh = Locale(identifier: "zh-Hant-TW")
+}

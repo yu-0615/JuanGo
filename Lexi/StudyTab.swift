@@ -1,0 +1,1238 @@
+import SwiftUI
+import SwiftData
+import PulsoIcon
+
+// MARK: - Dashboard
+
+struct StudyTab: View {
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var ctx
+    @Query private var words: [Word]
+    @Query(sort: \ReviewLog.date, order: .reverse) private var logs: [ReviewLog]
+    @Query(sort: \WordList.createdAt) private var lists: [WordList]
+
+    @State private var flow: StudyRequest?
+    @State private var showHistory = false
+    @State private var showSettings = false
+    /// Switches to the Explore tab when the daily goal needs more words than are saved.
+    var onFindWords: () -> Void = {}
+
+    private var stats: Stats { Stats(logs: logs, words: words) }
+    private var studyable: [Word] { words.filter { $0.inMyWords || !$0.lists.isEmpty } }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    Text(Date.now.formatted(.dateTime.month().day().weekday(.wide).locale(.zh)))
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, -8)
+                    todayCard
+                    quickTiles
+                    MasteryCard(distribution: Stats(logs: [], words: studyable).distribution)
+                    sectionHeader("我的清單")
+                    listTiles
+                    sectionHeader("內建字庫")
+                    deckRows
+                }
+                .padding(.horizontal, 20).padding(.bottom, 28)
+            }
+            .navigationTitle("今天")
+            .themedBackground()
+            .toolbar {
+                ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } }
+            }
+            .fullScreenCover(item: $flow) { StudyFlow(request: $0) }
+            #if DEBUG
+            .task {   // simulator testing: SIMCTL_CHILD_LEXI_STUDY=setup | q:英翻中 | summary | streak
+                if ProcessInfo.processInfo.environment["LEXI_STUDY"] != nil, flow == nil {
+                    flow = StudyRequest(title: "我的單字", words: words.filter(\.inMyWords).shuffled())
+                }
+            }
+            #endif
+            .sheet(isPresented: $showHistory) { HistoryView(logs: logs) }
+            .sheet(isPresented: $showSettings) { SettingsView() }
+        }
+    }
+
+    private func sectionHeader(_ t: String) -> some View {
+        Text(t).font(.system(.title3, design: .serif).weight(.bold)).padding(.bottom, -10)
+    }
+
+    /// Lexi's home: a ring for today's new words beside the day's numbers, then one big start button.
+    private var todayCard: some View {
+        @Bindable var settings = settings
+        let due = studyable.filter(\.isDue)
+        let newLeft = max(0, settings.dailyGoal - stats.newToday)
+        let newWords = Array(studyable.filter(\.isNew).sorted { $0.addedAt < $1.addedAt }.prefix(newLeft))
+        let nothingQueued = due.isEmpty && newWords.isEmpty
+        let progress = Double(stats.newToday) / Double(max(1, settings.dailyGoal))
+        return VStack(spacing: 18) {
+            HStack(spacing: 22) {
+                ZStack {
+                    Circle().stroke(Color.themeAccent.opacity(0.12), lineWidth: 12)
+                    Circle().trim(from: 0, to: min(1, progress))
+                        .stroke(Color.themeAccent, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(duration: 0.8), value: progress)
+                    VStack(spacing: 0) {
+                        Text("\(stats.newToday)").font(.system(size: 34, weight: .bold, design: .serif)).contentTransition(.numericText())
+                        Text("/ \(settings.dailyGoal) 新字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 118, height: 118)
+                VStack(alignment: .leading, spacing: 12) {
+                    statLine("arrow.triangle.2.circlepath", "待複習", "\(due.count) 個", .themeAccent)
+                    Menu {
+                        Picker("每日新字", selection: $settings.dailyGoal) {
+                            ForEach([5, 10, 15, 20, 30, 50], id: \.self) { Text("\($0) 個").tag($0) }
+                        }
+                    } label: {
+                        statLine("target", "每日目標", "\(settings.dailyGoal) 個 ▾", .themeAccent)
+                    }
+                    .buttonStyle(.plain)
+                    statLine("flame.fill", "連續", "\(stats.streak) 天", .ember)
+                }
+                Spacer(minLength: 0)
+            }
+            Button {
+                if nothingQueued { onFindWords() } else { flow = StudyRequest(title: "今日學習", words: due + newWords) }
+            } label: {
+                Label(nothingQueued ? (newLeft > 0 ? "去探索找新字" : "今天都完成了") : "開始今日學習",
+                      pulso: nothingQueued ? (newLeft > 0 ? "sparkles" : "checkmark") : "play.fill")
+            }
+            .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 54, glass: true))
+            .disabled(nothingQueued && newLeft == 0)
+            if studyable.isEmpty {
+                Text("先到「新增」或「探索」加入幾個單字吧。").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .card(padding: 20)
+    }
+
+    private func statLine(_ icon: String, _ label: String, _ value: String, _ tint: Color) -> some View {
+        HStack(spacing: 8) {
+            LIcon(icon).font(.subheadline.weight(.bold)).foregroundStyle(tint).frame(width: 20)
+            Text(label).font(.subheadline).foregroundStyle(.secondary)
+            Text(value).font(.subheadline.weight(.bold)).foregroundStyle(.primary)
+        }
+    }
+
+    private var quickTiles: some View {
+        HStack(spacing: 12) {
+            tile("自由練習", "沒學會的字隨機考", icon: { PulsoIconView(.infinity, size: 22, color: .themeAccent, strokeWidth: 2.6) }) {
+                flow = StudyRequest(title: "自由練習", words: studyable.filter { !$0.isMastered }.shuffled())
+            }
+            .disabled(studyable.isEmpty)
+            tile("學習紀錄", "每天練了哪些字", icon: { LIcon("calendar").font(.title3.bold()).foregroundStyle(.tint) }) {
+                showHistory = true
+            }
+        }
+    }
+
+    private func tile<I: View>(_ title: String, _ sub: String, @ViewBuilder icon: () -> I, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                icon().frame(height: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.headline).foregroundStyle(.primary)
+                    Text(sub).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .card(padding: 16)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var listTiles: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 12) {
+                listTile("我的單字", icon: "character.book.closed.fill", words: words.filter(\.inMyWords))
+                listTile("喜歡", icon: "heart.fill", words: words.filter(\.favorite))
+                ForEach(lists) { l in listTile(l.name, icon: "folder.fill", words: l.words) }
+            }
+            .padding(.horizontal, 20)
+        }
+        .scrollIndicators(.hidden)
+        .padding(.horizontal, -20)
+    }
+
+    private func listTile(_ name: String, icon: String, words: [Word]) -> some View {
+        Button { flow = StudyRequest(title: name, words: words.shuffled()) } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    LIcon(icon).font(.title2).foregroundStyle(.tint)
+                    Spacer()
+                    LIcon("play.circle.fill").font(.title2).foregroundStyle(words.isEmpty ? Color.secondary.opacity(0.4) : Color.themeAccent)
+                }
+                Spacer()
+                Text(name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                Text("\(words.count) 個單字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .frame(width: 140, height: 116)
+            .card(padding: 14)
+        }
+        .buttonStyle(.plain)
+        .disabled(words.isEmpty)
+    }
+
+    private var deckRows: some View {
+        VStack(spacing: 0) {
+            ForEach(Deck.studyDecks) { d in
+                let entries = Dictionary_.all.filter(d.contains)
+                Button {
+                    let picked = entries.filter { Library.word($0.w, in: ctx) == nil }.shuffled().prefix(settings.dailyGoal)
+                    let ws = picked.map { Library.add($0, in: ctx) }
+                    flow = StudyRequest(title: d.rawValue, words: ws)
+                } label: {
+                    HStack(spacing: 14) {
+                        Text(String(d.rawValue.prefix(1))).font(.system(.headline, design: .serif).bold())
+                            .foregroundStyle(.tint).frame(width: 36, height: 36)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.themeAccent.opacity(0.12)))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(d.rawValue).font(.headline).foregroundStyle(.primary)
+                            Text("\(entries.count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        LIcon("chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 12).padding(.horizontal, 16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if d.id != Deck.studyDecks.last?.id { Divider().padding(.leading, 66) }
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.hairline))
+        .overlay(alignment: .bottomLeading) {
+            Text("從內建字庫開始，會把還沒學過的字加入「我的單字」。").font(.caption).foregroundStyle(.secondary).offset(y: 24)
+        }
+        .padding(.bottom, 24)
+    }
+}
+
+struct StudyRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let words: [Word]
+}
+
+// MARK: - Question types
+
+enum QType: String, CaseIterable, Identifiable {
+    case flashcard = "翻卡片", enToZh = "英翻中", zhToEn = "中翻英", cloze = "克漏字", spelling = "拼單字"
+    case listenZh = "聽音選中文", listenEn = "聽音選英文", listenSpell = "聽音拼字"
+    var id: String { rawValue }
+    var group: String {
+        switch self {
+        case .flashcard, .enToZh: "認得"
+        case .zhToEn, .cloze: "想得起來"
+        case .spelling: "寫得出來"
+        default: "聽力"
+        }
+    }
+    static let groups = ["認得", "想得起來", "寫得出來", "聽力"]
+
+    static func smart(for w: Word, listening: Bool) -> QType {
+        switch w.srsLevel {
+        case 0, 1: return .flashcard
+        case 2: return listening && Bool.random() ? .listenZh : .enToZh
+        case 3: return listening && Bool.random() ? .listenEn : .zhToEn
+        case 4: return w.example.lowercased().contains(w.term) ? .cloze : .zhToEn
+        default: return listening && Bool.random() ? .listenSpell : .spelling
+        }
+    }
+}
+
+// MARK: - Engine
+
+@Observable final class SessionEngine {
+    struct Item: Identifiable { let id = UUID(); let word: Word; let type: QType }
+    private struct Snapshot {
+        let queue: [Item]; let pos: Int; let word: Word; let level: Int; let due: Date?; let last: Date?
+        let count: Int; let log: ReviewLog?; let done: Set<String>; let failed: Set<String>; let results: [RoundResult]
+        let answered: Int
+    }
+
+    var queue: [Item]
+    var pos = 0
+    var done = Set<String>()
+    var newLearned = Set<String>()
+    /// Words answered 不會 earlier in this session; a later 會 only relearns them.
+    private var failed = Set<String>()
+    /// Each word's first answer this round, in the order answered (shown on the summary).
+    private(set) var results: [RoundResult] = []
+    let total: Int
+    /// 無盡模式: the words are reshuffled and drawn again every time the queue runs out, until the user ends the round.
+    let endless: Bool
+    /// Questions answered 會/不確定 this session, repeats included (the endless header counts these).
+    private(set) var answered = 0
+    private let pool: [Word]
+    private let types: [QType]?
+    private let listening: Bool
+    private var undoStack: [Snapshot] = []
+
+    init(words: [Word], types: [QType]?, listening: Bool, endless: Bool = false) {
+        pool = words
+        self.types = types
+        self.listening = listening
+        self.endless = endless
+        queue = []
+        total = words.count
+        queue = draw(words.shuffled())
+    }
+
+    private func draw(_ words: [Word]) -> [Item] {
+        words.map { w in Item(word: w, type: types?.randomElement() ?? QType.smart(for: w, listening: listening)) }
+    }
+
+    /// Keeps an endless round going: when the last queued question is reached, deal the whole pool again,
+    /// never starting the new pass with the word just shown.
+    private func refillIfNeeded() {
+        guard endless, !pool.isEmpty, pos >= queue.count - 1 else { return }
+        var next = pool.shuffled()
+        if next.count > 1, let last = queue.last?.word, next.first?.term == last.term { next.swapAt(0, 1) }
+        queue += draw(next)
+    }
+
+    var current: Item? { pos < queue.count ? queue[pos] : nil }
+    var canUndo: Bool { !undoStack.isEmpty }
+    var progressText: String { endless ? "已完成 \(answered) 個" : "\(min(total, done.count + 1)) / \(total)" }
+
+    func grade(_ g: Grade, ctx: ModelContext) {
+        guard let it = current else { return }
+        let w = it.word
+        // In endless mode a word comes back many times; only its first answer of the session moves its SRS schedule.
+        let counts = !endless || !results.contains(where: { $0.word.term == w.term }) || failed.contains(w.term)
+        let log = counts ? ReviewLog(term: w.term, result: g.rawValue, wasNew: w.isNew) : nil
+        undoStack.append(Snapshot(queue: queue, pos: pos, word: w, level: w.srsLevel, due: w.dueDate,
+                                  last: w.lastReviewed, count: w.reviewCount, log: log, done: done, failed: failed,
+                                  results: results, answered: answered))
+        if counts {
+            if w.isNew { newLearned.insert(w.term) }
+            SRS.apply(g == .good && failed.contains(w.term) ? .unsure : g, to: w)
+        }
+        if g == .again { failed.insert(w.term) } else if endless { failed.remove(w.term) }
+        if !results.contains(where: { $0.word.term == w.term }) { results.append(RoundResult(word: w, grade: g)) }
+        if let log { ctx.insert(log) }
+        try? ctx.save()
+        if g == .again {
+            let again = Item(word: w, type: it.type == .spelling || it.type == .listenSpell ? .flashcard : it.type)
+            queue.insert(again, at: min(queue.count, pos + 4))
+        } else {
+            done.insert(w.term)
+            answered += 1
+        }
+        refillIfNeeded()
+        pos += 1
+    }
+
+    func undo(ctx: ModelContext) {
+        guard let s = undoStack.popLast() else { return }
+        queue = s.queue; pos = s.pos; done = s.done; failed = s.failed; results = s.results; answered = s.answered
+        s.word.srsLevel = s.level; s.word.dueDate = s.due; s.word.lastReviewed = s.last; s.word.reviewCount = s.count
+        if s.level == 0 { newLearned.remove(s.word.term) }
+        if let log = s.log { ctx.delete(log) }
+        try? ctx.save()
+    }
+}
+
+// MARK: - Flow (setup → session → streak → summary)
+
+struct StudyFlow: View {
+    let request: StudyRequest
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var ctx
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allWords: [Word]
+    @Query private var logs: [ReviewLog]
+
+    enum Phase { case setup, running, streak, summary }
+    @State private var phase = Phase.setup
+    @State private var engine: SessionEngine?
+    @State private var studiedBefore = false
+    @State private var lastRound = 0
+    @State private var lastResults: [RoundResult] = []
+
+    var body: some View {
+        ZStack {
+            settings.theme.background.ignoresSafeArea()
+            switch phase {
+            case .setup:
+                SessionSetupView(request: request, onClose: { dismiss() }) { words, types, listening, endless in
+                    studiedBefore = Stats(logs: logs, words: []).studiedToday > 0
+                    engine = SessionEngine(words: words, types: types, listening: listening, endless: endless)
+                    phase = .running
+                }
+            case .running:
+                if let engine {
+                    SessionView(engine: engine, title: request.title, onClose: { finish(engine) })
+                        .onChange(of: engine.current == nil) { _, ended in if ended { finish(engine) } }
+                }
+            case .streak:
+                StreakView(stats: Stats(logs: logs, words: allWords)) { phase = .summary }
+            case .summary:
+                SummaryView(stats: Stats(logs: logs, words: allWords), roundCount: lastRound, results: lastResults,
+                            onAgain: { phase = .setup }, onDone: { dismiss() })
+            }
+        }
+        .animation(.easeInOut, value: phase)
+        #if DEBUG
+        .task {
+            guard let m = ProcessInfo.processInfo.environment["LEXI_STUDY"] else { return }
+            if m.hasPrefix("q:") {
+                engine = SessionEngine(words: request.words, types: QType(rawValue: String(m.dropFirst(2))).map { [$0] }, listening: false)
+                phase = .running
+            } else if m == "summary" { lastRound = 2; phase = .summary }
+            else if m == "streak" { phase = .streak }
+        }
+        #endif
+    }
+
+    private func finish(_ engine: SessionEngine) {
+        lastRound = engine.done.count
+        lastResults = engine.results
+        guard lastRound > 0 else { dismiss(); return }
+        phase = studiedBefore ? .summary : .streak
+    }
+}
+
+struct SessionSetupView: View {
+    let request: StudyRequest
+    var onClose: () -> Void
+    var onStart: ([Word], [QType]?, Bool, Bool) -> Void
+    @State private var smart = true
+    @State private var types: Set<QType> = [.flashcard]
+    @State private var listening = false
+    /// 本次隨機抽取: 0 = all words, -1 = 無盡模式, otherwise draw this many at random.
+    @State private var limit = 0
+    @State private var showInfo = false
+    /// The random draw for the current count, kept so the preview and the round use the same words.
+    @State private var drawn: [Word] = []
+
+    private var endless: Bool { limit == -1 }
+    private var words: [Word] { limit > 0 ? drawn : request.words }
+    private var drawOptions: [Int] { [5, 10, 20, 30, 50].filter { $0 < request.words.count } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("本輪設定").font(.system(.largeTitle, design: .serif).weight(.bold))
+                }
+                Spacer()
+                Button { showInfo = true } label: { LIcon("questionmark.circle").font(.title3) }
+                    .foregroundStyle(.secondary)
+                Button(action: onClose) {
+                    LIcon("xmark").font(.headline).frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.cardFill)).overlay(Circle().strokeBorder(Color.hairline))
+                }
+                .foregroundStyle(.primary)
+            }
+            .padding(.top, 8)
+            .alert("題目怎麼安排？", isPresented: $showInfo) { Button("好", role: .cancel) {} } message: {
+                Text("自動安排：依每個字在熟練階梯的位置出題，越熟題目越難。\n手動挑選：自己決定要考哪幾種題型。")
+            }
+            Picker("", selection: $smart) { Text("自動安排").tag(true); Text("手動挑選").tag(false) }.pickerStyle(.segmented)
+            ScrollView {
+                if smart { smartPanel } else { customPanel }
+            }
+            VStack(spacing: 10) {
+                Menu {
+                    Picker("題數", selection: $limit) {
+                        Text("全部 \(request.words.count) 個").tag(0)
+                        ForEach(drawOptions, id: \.self) { Text("隨機 \($0) 個").tag($0) }
+                        Text("無盡模式").tag(-1)
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    HStack(spacing: 10) {
+                        PulsoIconView(endless ? .infinity : .dices, size: 20, color: .themeAccent, strokeWidth: 2.2, play: limit != 0)
+                        Text("題數").foregroundStyle(.secondary)
+                        Spacer()
+                        Text(drawLabel).fontWeight(.bold)
+                        LIcon("chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline).foregroundStyle(.primary)
+                    .card(padding: 14)
+                }
+                .menuOrder(.fixed).tint(.primary)
+                Button { onStart(endless ? request.words : words, smart ? nil : Array(types), listening, endless) } label: {
+                    Label("開始練習", pulso: "play.fill")
+                }
+                .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 54, glass: true))
+                .disabled(request.words.isEmpty || (!smart && types.isEmpty))
+            }
+        }
+        .padding(.horizontal, 18)
+        .onChange(of: limit, initial: true) { _, n in
+            drawn = n > 0 ? Array(request.words.shuffled().prefix(n)) : []
+        }
+    }
+
+    private var drawLabel: String {
+        switch limit {
+        case 0: "全部 \(request.words.count) 個"
+        case -1: "無盡模式"
+        default: "隨機 \(limit) 個"
+        }
+    }
+
+    /// The setup card while 無盡模式 is picked.
+    private var endlessCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                PulsoIconView(.infinity, size: 34, color: .themeAccent, strokeWidth: 2.4, play: true)
+                Text("無盡模式").font(.system(size: 34, weight: .heavy))
+            }
+            Text("從 \(request.words.count) 個字裡隨機抽考，一輪考完會重新洗牌再抽，隨時按左上角結束。")
+                .font(.subheadline).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private var smartPanel: some View {
+        let review = words.filter { !$0.isNew }.count
+        let fresh = words.count - review
+        let breakdown = Swift.Dictionary(grouping: words) { QType.smart(for: $0, listening: false) }
+        return VStack(spacing: 12) {
+            if endless { endlessCard } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(words.count) 個字").font(.system(size: 34, weight: .heavy))
+                Text("複習 \(review)・新字 \(fresh)・約 \(max(1, words.count / 2)) 分鐘").foregroundStyle(.secondary)
+                Divider().padding(.vertical, 6)
+                ForEach(QType.allCases.filter { breakdown[$0] != nil }) { t in
+                    let n = breakdown[t]!.count
+                    HStack {
+                        Text(t.rawValue).font(.subheadline.bold()).frame(width: 64, alignment: .leading)
+                        GeometryReader { g in
+                            Capsule().fill(Color.themeAccent).frame(width: g.size.width * CGFloat(n) / CGFloat(max(1, words.count)))
+                        }.frame(height: 6)
+                        Text("\(n)").font(.subheadline.bold())
+                    }
+                }
+            }.card()
+            }
+            Toggle(isOn: $listening) { Label("包含聽力題", pulso: "headphones").font(.headline) }.card()
+            Text("自動安排會依熟練階梯出題：初見的字翻卡片，越往上越考中翻英、克漏字和拼字。")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var customPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if endless { endlessCard }
+            ForEach(QType.groups, id: \.self) { g in
+                Text(g).font(.caption.bold()).foregroundStyle(.secondary)
+                StackGrid(items: QType.allCases.filter { $0.group == g }, columns: 2, spacing: 10) { t in
+                        let on = types.contains(t)
+                        Button { if on { types.remove(t) } else { types.insert(t) } } label: {
+                            Text(t.rawValue).font(.headline)
+                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .foregroundStyle(on ? Color.onAccent : .primary)
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(on ? Color.themeAccent : Color.cardFill))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.hairline))
+                                .overlay(alignment: .topTrailing) { if on { LIcon("checkmark.circle.fill").foregroundStyle(Color.onAccent).padding(8) } }
+                        }.buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Session
+
+struct SessionView: View {
+    @Bindable var engine: SessionEngine
+    let title: String
+    var onClose: () -> Void
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var ctx
+    @State private var showRules = false
+    @State private var detail: Word?
+    @State private var gradeTick = 0
+    @State private var confirmExit = false
+    @State private var showSettings = false
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // Lexi: ✕, a segmented progress track and a ··· menu; the question type and level pips underneath.
+            VStack(spacing: 14) {
+                HStack(spacing: 14) {
+                    Button { confirmExit = true } label: {
+                        LIcon("xmark").font(.headline).frame(width: 36, height: 36)
+                            .background(Circle().fill(Color.cardFill)).overlay(Circle().strokeBorder(Color.hairline))
+                    }
+                    .foregroundStyle(.primary)
+                    progressTrack
+                    Menu {
+                        Button("學習規則", pulso: "questionmark.circle") { showRules = true }
+                        Button("單字詳情", pulso: "text.book.closed") { detail = engine.current?.word }
+                        Button("設定", pulso: "slider.horizontal.3") { showSettings = true }
+                    } label: {
+                        LIcon("ellipsis").font(.headline).frame(width: 36, height: 36)
+                            .background(Circle().fill(Color.cardFill)).overlay(Circle().strokeBorder(Color.hairline))
+                    }
+                    .foregroundStyle(.primary)
+                }
+                HStack(alignment: .firstTextBaseline) {
+                    Text(engine.current?.type.rawValue ?? title).font(.system(.title3, design: .serif).weight(.bold))
+                    Spacer()
+                    if let w = engine.current?.word {
+                        HStack(spacing: 4) {
+                            ForEach(1...5, id: \.self) { i in
+                                Circle().fill(i <= w.srsLevel ? Color.themeAccent : Color.secondary.opacity(0.22)).frame(width: 7, height: 7)
+                            }
+                        }
+                        Text(levelNames[max(0, min(5, w.srsLevel))]).font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.top, 8)
+            if let item = engine.current {
+                Group {
+                    switch item.type {
+                    case .flashcard:
+                        FlashcardQuestion(word: item.word, canUndo: engine.canUndo, onUndo: { engine.undo(ctx: ctx) },
+                                          onDetail: { detail = item.word }, onGrade: grade)
+                    case .spelling, .listenSpell:
+                        SpellingQuestion(word: item.word, listen: item.type == .listenSpell, canUndo: engine.canUndo,
+                                         onUndo: { engine.undo(ctx: ctx) }, onGrade: grade)
+                    default:
+                        ChoiceQuestion(word: item.word, type: item.type, canUndo: engine.canUndo,
+                                       onUndo: { engine.undo(ctx: ctx) }, onGrade: grade)
+                    }
+                }
+                .id(item.id)
+                .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+            }
+        }
+        .padding(.horizontal, 18)
+        .animation(.spring(duration: 0.35), value: engine.pos)
+        .sensoryFeedback(.impact(weight: .light), trigger: gradeTick) { _, _ in settings.haptics }
+        .onAppear { if !settings.studyRulesSeen { showRules = true; settings.studyRulesSeen = true } }
+        .sheet(isPresented: $showRules) { RulesSheet() }
+        .sheet(isPresented: $showSettings) { SettingsView() }
+        .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
+        .alert("先休息一下？", isPresented: $confirmExit) {
+            Button("繼續練", role: .cancel) {}
+            Button("離開") { onClose() }
+        } message: {
+            Text(engine.endless ? "已完成 \(engine.answered) 題，答過的字都已記錄。" : "已完成的進度會保留，沒考到的字下次再練。")
+        }
+    }
+
+    @ViewBuilder private var progressTrack: some View {
+        if engine.endless {
+            HStack(spacing: 8) {
+                PulsoIconView(.infinity, size: 18, color: .themeAccent, strokeWidth: 2.4, play: engine.answered > 0)
+                Text(engine.progressText).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            // One segment per word; finished words fill in.
+            HStack(spacing: 3) {
+                ForEach(0..<max(1, engine.total), id: \.self) { i in
+                    Capsule().fill(i < engine.done.count ? Color.themeAccent : Color.secondary.opacity(0.18))
+                }
+            }
+            .frame(height: 6)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .trailing) {
+                Text(engine.progressText).font(.caption2.weight(.bold).monospacedDigit()).foregroundStyle(.secondary).offset(y: 14)
+            }
+            .animation(.spring(duration: 0.4), value: engine.done.count)
+        }
+    }
+
+    private func grade(_ g: Grade) {
+        gradeTick += 1
+        engine.grade(g, ctx: ctx)
+    }
+}
+
+struct RulesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("使用提示") {
+                    rule("checkmark.circle", "右滑：會", "安排到下次到期再出現。")
+                    rule("xmark.circle", "左滑：不會", "約 20 分鐘後再出現，本輪也會再考一次。")
+                    rule("questionmark.circle", "不確定", "明天再複習一次。")
+                    rule("hand.tap", "點一下：看解釋", "卡片會翻到解釋面。")
+                    rule("heart", "愛心：加入喜歡", "喜歡的單字會進入「喜歡」清單。")
+                    rule("arrow.uturn.backward", "撤銷", "復原上一個答案。")
+                }
+            }
+            .navigationTitle("學習規則").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+    private func rule(_ icon: String, _ title: String, _ sub: String) -> some View {
+        Label { VStack(alignment: .leading) { Text(title).font(.headline); Text(sub).font(.caption).foregroundStyle(.secondary) } }
+            icon: { LIcon(icon).foregroundStyle(.tint) }
+    }
+}
+
+/// 不會 / 不確定 / 會 as three square tiles with an icon over the label.
+struct GradeButtons: View {
+    var onGrade: (Grade) -> Void
+    var body: some View {
+        HStack(spacing: 10) {
+            tile("不會", "xmark", .againPink, .again)
+            tile("不確定", "questionmark", .unsureYellow, .unsure)
+            tile("會", "checkmark", .knowGreen, .good)
+        }
+    }
+    private func tile(_ t: String, _ icon: String, _ fill: Color, _ g: Grade) -> some View {
+        Button { onGrade(g) } label: {
+            VStack(spacing: 4) {
+                LIcon(icon).font(.title3.weight(.bold))
+                Text(t).font(.subheadline.weight(.bold))
+            }
+        }
+        .buttonStyle(PillButtonStyle(fill: fill, height: 66))
+    }
+}
+
+struct FlashcardQuestion: View {
+    let word: Word
+    let canUndo: Bool
+    var onUndo: () -> Void
+    var onDetail: () -> Void
+    var onGrade: (Grade) -> Void
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var ctx
+    @State private var flipped = false
+    @State private var drag: CGSize = .zero
+    @State private var lookup: LookupTerm?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                face(back: false).opacity(flipped ? 0 : 1)
+                face(back: true).opacity(flipped ? 1 : 0).rotation3DEffect(.degrees(180), axis: (0, 1, 0))
+            }
+            .rotation3DEffect(.degrees(flipped ? 180 : 0), axis: (0, 1, 0), perspective: 0.4)
+            .overlay(alignment: .top) { swipeHint }
+            .offset(x: drag.width, y: drag.height * 0.2)
+            .rotationEffect(.degrees(Double(drag.width) / 22))
+            .gesture(
+                DragGesture()
+                    .onChanged { drag = $0.translation }
+                    .onEnded { v in
+                        if v.translation.width > 120 { fling(.good, to: 600) }
+                        else if v.translation.width < -120 { fling(.again, to: -600) }
+                        else { withAnimation(.spring) { drag = .zero } }
+                    }
+            )
+            .onTapGesture { withAnimation(.spring(duration: 0.5)) { flipped.toggle() } }
+            .padding(.top, 20)
+            HStack(spacing: 20) {
+                Button(action: onUndo) { Label("復原", pulso: "arrow.uturn.backward") }.disabled(!canUndo)
+                Spacer()
+                Button { word.favorite.toggle(); try? ctx.save() } label: { LIcon(word.favorite ? "heart.fill" : "heart") }
+                    .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
+                Button { Speech.say(word.term) } label: { LIcon("speaker.wave.2.fill") }.foregroundStyle(.tint)
+            }
+            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            GradeButtons(onGrade: onGrade)
+        }
+        .padding(.bottom, 12)
+        .onAppear {
+            if !settings.muted { Speech.say(word.term) }
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["LEXI_FLIP"] != nil { flipped = true }   // simulator: show the back
+            #endif
+        }
+        .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
+    }
+
+    @ViewBuilder private var swipeHint: some View {
+        if abs(drag.width) > 30 {
+            Text(drag.width > 0 ? "會" : "不會").font(.title2.weight(.heavy))
+                .padding(.horizontal, 20).padding(.vertical, 8)
+                .background(Capsule().fill(drag.width > 0 ? Color.knowGreen : Color.againPink))
+                .padding(.top, 20)
+                .opacity(min(1, abs(drag.width) / 120))
+        }
+    }
+
+    private func fling(_ g: Grade, to x: CGFloat) {
+        withAnimation(.easeIn(duration: 0.2)) { drag = CGSize(width: x, height: 0) }
+        Task { try? await Task.sleep(for: .seconds(0.2)); onGrade(g) }
+    }
+
+    /// Card faces are left-aligned like a dictionary entry: headword, pronunciation, then meaning and example.
+    private func face(back: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                if !word.pos.isEmpty {
+                    Text(word.pos).font(.caption.weight(.bold)).foregroundStyle(.tint)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.themeAccent.opacity(0.12)))
+                }
+                Spacer()
+                Text(back ? "解釋" : "點一下翻面").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            Spacer(minLength: 0)
+            Text(word.term).font(.system(size: back ? 36 : 46, weight: .bold, design: .serif)).minimumScaleFactor(0.5).lineLimit(1)
+            Button { Speech.say(word.term) } label: {
+                HStack(spacing: 6) {
+                    LIcon("speaker.wave.2.fill").foregroundStyle(.tint)
+                    if !word.ipa.isEmpty { Text("/\(word.ipa)/").foregroundStyle(.secondary) }
+                }.font(.subheadline)
+            }
+            .buttonStyle(.plain)
+            if back {
+                Rectangle().fill(Color.hairline).frame(height: 1).padding(.vertical, 4)
+                Text(word.primaryMeaning).font(.system(size: 28, weight: .bold))
+                if word.meanings.count > 1 {
+                    Text("也有：" + word.meanings.dropFirst().prefix(3).joined(separator: "、")).font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            if !word.example.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    TappableSentence(sentence: word.example, highlight: word.term, font: .body.weight(.medium)) { lookup = LookupTerm(term: $0) }
+                    if back && settings.showTranslation { Text(word.exampleZh).font(.subheadline).foregroundStyle(.secondary) }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.themeAccent.opacity(0.06)))
+                .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
+            } else if back && !word.definition.isEmpty {
+                Text(word.definition).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+            }
+            Spacer(minLength: 0)
+            if back {
+                Button { onDetail() } label: { Label("完整單字頁", pulso: "arrow.up.right") }.font(.subheadline.bold())
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.cardFill))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.hairline))
+    }
+}
+
+/// Multiple-choice question: EN→ZH, ZH→EN, cloze, and the two listening variants.
+struct ChoiceQuestion: View {
+    let word: Word
+    let type: QType
+    var canUndo = false
+    var onUndo: () -> Void = {}
+    var onGrade: (Grade) -> Void
+    @Environment(\.modelContext) private var ctx
+    @Environment(AppSettings.self) private var settings
+    @Query private var library: [Word]
+    @State private var options: [String] = []
+    @State private var picked: String?
+    @State private var lookup: LookupTerm?
+
+    private var answersInZh: Bool { type == .enToZh || type == .listenZh }
+    private var correct: String { answersInZh ? word.primaryMeaning : word.term }
+
+    /// Prompt on the page, then four lettered answer rows; undo and ♡ sit in a slim bar at the bottom.
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: type == .cloze ? .leading : .center, spacing: 10) { prompt }
+                .frame(maxWidth: .infinity, minHeight: 170)
+            ForEach(Array(options.enumerated()), id: \.element) { k, o in
+                Button { choose(o) } label: {
+                    HStack(spacing: 14) {
+                        Text(String(UnicodeScalar(65 + k)!)).font(.subheadline.weight(.bold)).monospaced()
+                            .foregroundStyle(picked == nil ? Color.themeAccent : .primary)
+                            .frame(width: 30, height: 30)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
+                        Text(o).font(.headline).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
+                        Spacer()
+                        if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
+                        else if picked == o { LIcon("xmark.circle.fill").foregroundStyle(Color.themeAccent) }
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(fill(for: o)))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.hairline))
+                }
+                .buttonStyle(.plain)
+                .disabled(picked != nil)
+            }
+            Spacer(minLength: 10)
+            HStack(spacing: 18) {
+                Button(action: onUndo) { Label("復原", pulso: "arrow.uturn.backward") }
+                    .disabled(!canUndo)
+                Button { word.favorite.toggle(); try? ctx.save() } label: {
+                    LIcon(word.favorite ? "heart.fill" : "heart")
+                }
+                .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
+                Spacer()
+                if let picked, picked != correct {
+                    Button("下一題") { onGrade(.again) }
+                        .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
+                }
+            }
+            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .frame(minHeight: 46)
+        }
+        .padding(.top, 12).padding(.bottom, 8)
+        .onAppear {
+            options = makeOptions()
+            if type == .listenZh || type == .listenEn || (!settings.muted && type == .enToZh) { Speech.say(word.term) }
+        }
+        .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
+    }
+
+    @ViewBuilder private var prompt: some View {
+        switch type {
+        case .enToZh:
+            Text(word.term).font(.system(size: 44, weight: .bold, design: .serif)).lineLimit(1).minimumScaleFactor(0.5)
+            HStack(spacing: 10) {
+                if !word.ipa.isEmpty { Text("[\(word.ipa)]").font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
+                SpeakButton(text: word.term).font(.footnote)
+            }
+        case .zhToEn:
+            Text(word.meaningLine).font(.system(size: 32, weight: .bold)).multilineTextAlignment(.center)
+            if !word.pos.isEmpty { Text(word.pos).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
+        case .cloze:
+            Text("選出填入空格的字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            TappableSentence(sentence: clozeSentence, font: .system(.title3, design: .serif).weight(.semibold)) { lookup = LookupTerm(term: $0) }
+                .frame(maxWidth: .infinity, alignment: .leading)
+        default:
+            Button { Speech.say(word.term) } label: {
+                LIcon("speaker.wave.3.fill").font(.system(size: 44)).frame(width: 110, height: 110)
+                    .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
+            }.buttonStyle(.plain).foregroundStyle(.tint)
+            Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var clozeSentence: String {
+        word.example.replacingOccurrences(of: "\\b\(NSRegularExpression.escapedPattern(for: word.term))\\w*", with: "____",
+                                          options: [.regularExpression, .caseInsensitive])
+    }
+
+    private func fill(for o: String) -> Color {
+        let idle = Color.cardFill
+        guard let picked else { return idle }
+        if o == correct { return .knowGreen }
+        if o == picked { return .againPink }
+        return idle
+    }
+
+    private func choose(_ o: String) {
+        picked = o
+        if o == correct {
+            Speech.say(word.term)
+            Task { try? await Task.sleep(for: .seconds(0.7)); onGrade(.good) }
+        }
+    }
+
+    private func makeOptions() -> [String] {
+        let pool: [(term: String, zh: String, pos: String)] =
+            Dictionary_.all.map { ($0.w, $0.zh.first ?? "", $0.pos) } + library.map { ($0.term, $0.primaryMeaning, $0.pos) }
+        let others = pool.filter { $0.term != word.term && !$0.zh.isEmpty && $0.zh != word.primaryMeaning }
+        let samePos = others.filter { $0.pos == word.pos }.shuffled()
+        var picks: [String] = []
+        for c in (samePos + others.shuffled()) {
+            let v = answersInZh ? c.zh : c.term
+            if !picks.contains(v) && v != correct { picks.append(v) }
+            if picks.count == 3 { break }
+        }
+        return (picks + [correct]).shuffled()
+    }
+}
+
+struct SpellingQuestion: View {
+    let word: Word
+    let listen: Bool
+    var canUndo = false
+    var onUndo: () -> Void = {}
+    var onGrade: (Grade) -> Void
+    @Environment(\.modelContext) private var ctx
+    @State private var text = ""
+    @State private var checked: Bool?
+    @State private var gaveUp = false
+    @FocusState private var focused: Bool
+
+    /// The meaning on top, one box per letter (first and last letter shown), then a plain text field.
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(spacing: 10) {
+                if listen {
+                    Button { Speech.say(word.term) } label: {
+                        LIcon("speaker.wave.3.fill").font(.system(size: 40)).frame(width: 100, height: 100)
+                            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
+                    }.buttonStyle(.plain).foregroundStyle(.tint)
+                } else {
+                    Text(word.meaningLine).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
+                    if !word.pos.isEmpty { Text(word.pos).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary) }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 150)
+            letterBoxes
+            TextField("在這裡拼出單字", text: $text)
+                .font(.system(.title3, design: .monospaced).weight(.semibold))
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .focused($focused)
+                .submitLabel(.done)
+                .onSubmit(check)
+                .padding(.horizontal, 16).frame(height: 54)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.cardFill))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(focused ? Color.themeAccent : Color.hairline, lineWidth: focused ? 2 : 1))
+                .disabled(checked != nil)
+            if let checked {
+                Label(checked ? "拼對了！" : "答案是 \(word.term)", pulso: checked ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.headline).foregroundStyle(checked ? Color.green : Color.themeAccent)
+            } else {
+                HStack(spacing: 12) {
+                    Button("想不起來", pulso: "questionmark") { gaveUp = true; checked = false; Speech.say(word.term) }
+                        .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 50))
+                    Button("檢查", pulso: "checkmark") { check() }
+                        .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 50, glass: true))
+                        .disabled(text.isEmpty)
+                }
+            }
+            Spacer()
+            HStack(spacing: 18) {
+                Button(action: onUndo) { Label("復原", pulso: "arrow.uturn.backward") }
+                    .disabled(!canUndo)
+                Button { word.favorite.toggle(); try? ctx.save() } label: {
+                    LIcon(word.favorite ? "heart.fill" : "heart")
+                }
+                .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
+                Spacer()
+                if checked == false {
+                    Button("下一題") { onGrade(.again) }
+                        .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
+                }
+            }
+            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .frame(minHeight: 46)
+        }
+        .padding(.top, 12).padding(.bottom, 8)
+        .onAppear { if listen { Speech.say(word.term) } }
+    }
+
+    /// One box per letter; typed letters fill in as you go.
+    private var letterBoxes: some View {
+        let t = Array(word.term), typed = Array(text)
+        let side = min(34, (UIScreen.main.bounds.width - 40) / CGFloat(max(1, t.count)) - 4)
+        return HStack(spacing: 4) {
+            ForEach(0..<t.count, id: \.self) { k in
+                let given = k == 0 || k == t.count - 1 || t[k] == " " || t[k] == "-"
+                let ch: String = k < typed.count ? String(typed[k]) : (given || checked != nil ? String(t[k]) : "")
+                Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
+                    .foregroundStyle(k < typed.count ? Color.primary : Color.secondary)
+                    .frame(width: side, height: side * 1.2)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.cardFill))
+                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(k == typed.count && checked == nil ? Color.themeAccent : Color.hairline))
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func check() {
+        guard checked == nil, !text.isEmpty else { return }
+        let ok = text.trimmingCharacters(in: .whitespaces).lowercased() == word.term.lowercased()
+        checked = ok
+        Speech.say(word.term)
+        if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(.good) } }
+    }
+}
+
+// MARK: - Celebration screens
+
+struct StreakView: View {
+    let stats: Stats
+    var onContinue: () -> Void
+    @State private var appear = false
+    @State private var showShare = false
+
+    var body: some View {
+        let streak = stats.streak
+        let next = BadgeKind.all[0].next(for: streak)
+        VStack(spacing: 22) {
+            HStack { Spacer(); ShareLink(item: "我在 Lexi 已經連續學習 \(streak) 天了！") { GlassCircleIcon(systemName: "square.and.arrow.up") }
+                .buttonStyle(.glass).buttonBorderShape(.roundedRectangle(radius: 12)) }
+            Spacer()
+            ZStack {
+                LIcon("drop.fill").font(.system(size: 220)).foregroundStyle(
+                    LinearGradient(colors: [Color(white: 0.85), Color(white: 0.6)], startPoint: .top, endPoint: .bottom))
+                LIcon("flame.fill").font(.system(size: 92))
+                    .foregroundStyle(LinearGradient(colors: [.yellow, .orange, .red], startPoint: .top, endPoint: .bottom))
+                    .offset(y: 30)
+                    .shadow(color: .orange, radius: appear ? 30 : 4)
+            }
+            .scaleEffect(appear ? 1 : 0.5)
+            Text("\(streak)").font(.system(size: 80, weight: .black)).contentTransition(.numericText())
+            Text("天連續學習").font(.title3.bold())
+            weekDots
+            Text(streak >= next ? "已解鎖所有連續勳章" : "再 \(next - streak) 天解鎖下一枚連續勳章").font(.subheadline).opacity(0.7)
+            Spacer()
+            Button("繼續", action: onContinue)
+                .font(.headline).foregroundStyle(.black)
+                .frame(width: 140, height: 52).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white))
+        }
+        .foregroundStyle(.white)
+        .padding(24)
+        .background(Color.black.ignoresSafeArea())
+        .onAppear { withAnimation(.spring(duration: 0.8, bounce: 0.4)) { appear = true } }
+    }
+
+    private var weekDots: some View {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        let days = (0..<7).reversed().map { cal.date(byAdding: .day, value: -$0, to: today)! }
+        let fmt = Date.FormatStyle().weekday(.narrow).locale(.zh)
+        return HStack(spacing: 12) {
+            ForEach(days, id: \.self) { d in
+                VStack(spacing: 6) {
+                    if stats.activeDays.contains(d) {
+                        LIcon("flame.fill").font(.title2).foregroundStyle(.orange).frame(width: 30, height: 30)
+                    } else {
+                        Circle().fill(.white.opacity(0.12)).frame(width: 30, height: 30)
+                    }
+                    Text(d.formatted(fmt)).font(.caption2.bold()).opacity(0.6)
+                }
+            }
+        }
+    }
+}
+
+struct SummaryView: View {
+    let stats: Stats
+    let roundCount: Int
+    let results: [RoundResult]
+    var onAgain: () -> Void
+    var onDone: () -> Void
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        let left = max(0, settings.dailyGoal - stats.newToday)
+        let count = { (g: Grade) in results.filter { $0.grade == g }.count }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("這一輪完成了").font(.system(.largeTitle, design: .serif).weight(.bold)).padding(.top, 30)
+                Text("共 \(roundCount) 個字・今天新學 \(stats.newToday) 個・連續 \(stats.streak) 天")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 22) {
+                    ScoreRing(good: count(.good), unsure: count(.unsure), again: count(.again)).frame(width: 140, height: 140)
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach([Grade.good, .unsure, .again], id: \.self) { g in
+                            HStack(spacing: 8) {
+                                RoundedRectangle(cornerRadius: 3).fill(g.ring).frame(width: 12, height: 12)
+                                Text(g.label).font(.subheadline).foregroundStyle(.secondary)
+                                Text("\(count(g))").font(.subheadline.weight(.bold)).monospacedDigit()
+                            }
+                        }
+                    }
+                }
+                .card(padding: 20)
+                if !settings.reminderAsked && !settings.reminderOn {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("每天提醒你回來練習？", pulso: "bell.badge.fill").font(.headline)
+                        Text("每天 \(settings.reminderText) 通知你，複習才不會中斷。").font(.subheadline).foregroundStyle(.secondary)
+                        HStack {
+                            Button("先不要") { settings.reminderAsked = true }.buttonStyle(PillButtonStyle(fill: .primary.opacity(0.06), height: 44))
+                            Button("開啟提醒") { settings.reminderAsked = true; settings.reminderOn = true }
+                                .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 44, glass: true))
+                        }
+                    }.card()
+                }
+                Text("成就").font(.system(.title3, design: .serif).weight(.bold))
+                HStack(alignment: .top) {
+                    ForEach(BadgeKind.all) { k in BadgeMedal(kind: k, value: BadgeKind.value(k.id, stats: stats), size: 52).frame(maxWidth: .infinity) }
+                }
+                if !results.isEmpty { resultsCard }
+            }
+            .padding(.horizontal, 20).padding(.bottom, 20)
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 12) {
+                Button("結束", action: onDone).buttonStyle(PillButtonStyle(fill: .cardFill, height: 54)).frame(width: 110)
+                Button(left > 0 ? "再練一輪（還差 \(left)）" : "再練一輪", action: onAgain)
+                    .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 54, glass: true))
+            }
+            .padding(.horizontal, 20).padding(.vertical, 10)
+            .background(.bar)
+        }
+    }
+}
+
+extension SummaryView {
+    fileprivate var resultsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("這輪的字").font(.system(.headline, design: .serif).weight(.bold))
+                Spacer()
+                ForEach([Grade.good, .unsure, .again], id: \.self) { g in
+                    let n = results.filter { $0.grade == g }.count
+                    if n > 0 { Text("\(g.label) \(n)").font(.caption.bold()).padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Capsule().fill(g.tint)) }
+                }
+            }
+            ForEach(results) { r in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(r.word.term).font(.headline)
+                        Text(r.word.primaryMeaning).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer()
+                    Text(levelNames[max(0, min(5, r.word.srsLevel))]).font(.caption.bold()).foregroundStyle(.tint)
+                    RoundedRectangle(cornerRadius: 3).fill(r.grade.ring).frame(width: 12, height: 12)
+                }
+                if r.id != results.last?.id { Divider() }
+            }
+        }
+        .card()
+    }
+}
+
+struct RoundResult: Identifiable {
+    let word: Word
+    let grade: Grade
+    var id: String { word.term }
+}
+
+extension Grade {
+    var label: String { switch self { case .good: "會"; case .unsure: "不確定"; case .again: "不會" } }
+    var tint: Color { switch self { case .good: .knowGreen; case .unsure: .unsureYellow; case .again: .againPink } }
+    /// Strong version used in the score ring and legends.
+    var ring: Color { switch self { case .good: .green.opacity(0.75); case .unsure: .ember; case .again: .themeAccent } }
+}
+
+struct HistoryView: View {
+    let logs: [ReviewLog]
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List {
+                if logs.isEmpty { EmptyState("還沒有學習紀錄", icon: "clock") }
+                let groups = Swift.Dictionary(grouping: logs.prefix(500)) { Calendar.current.startOfDay(for: $0.date) }
+                ForEach(groups.keys.sorted(by: >), id: \.self) { day in
+                    Section(day.formatted(.dateTime.month().day().weekday().locale(.zh))) {
+                        ForEach(groups[day]!) { l in
+                            HStack {
+                                Text(l.term).font(.headline)
+                                if l.wasNew { Text("新字").font(.caption2.bold()).foregroundStyle(.tint) }
+                                Spacer()
+                                Text(["不會", "不確定", "會"][l.result]).font(.subheadline)
+                                    .foregroundStyle([Color.red, .orange, .green][l.result])
+                                Text(l.date.formatted(.dateTime.hour().minute().locale(.zh))).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("學習紀錄")
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
+        }
+    }
+}
