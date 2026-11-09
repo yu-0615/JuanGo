@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Vision
+import NaturalLanguage
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -13,8 +14,23 @@ struct ScanToken: Identifiable {
     /// normalized, top-left origin
     let rect: CGRect
     let entry: DictEntry?
+    /// Part of speech this occurrence has in its sentence ("v.", "n." …), from NaturalLanguage.
+    var context: String? = nil
     /// occurrences of the same word share one selection key
     var key: String { entry?.w ?? text.lowercased() }
+
+    /// The part of speech this occurrence counts as. The dictionary lists every part of speech a word
+    /// can have ("pressure" is n./v.), so the word is classified by how this sentence uses it.
+    /// - the sentence's use, when the dictionary allows it ("Parents pressure…" → v.)
+    /// - a verb-like use of a modal (must, will) → aux.
+    /// - the sentence's use contradicts the dictionary → [] (unclear, so no part-of-speech filter picks it)
+    /// - no sentence information (a lone heading word) → the dictionary's list
+    var usedAs: [String] {
+        guard let tags = entry?.posTags, !tags.isEmpty else { return [] }
+        guard let context else { return tags }
+        if context == "v.", tags.contains("aux.") { return ["aux."] }
+        return tags.contains(context) ? [context] : []
+    }
 }
 
 struct ScanResult: Identifiable {
@@ -37,14 +53,30 @@ enum PhotoScanner {
     static func scan(_ raw: UIImage) async -> ScanResult? {
         let image = upright(raw)
         guard let cg = image.cgImage else { return nil }
-        let words = await recognizeWords(cg)
+        let (words, text) = await recognizeWords(cg)
+        let used = partsOfSpeech(in: text, at: words.map(\.loc))
         let tokens = words.enumerated().map { i, w in
-            ScanToken(id: i, text: w.text, rect: w.rect, entry: w.text.count >= 2 ? Dictionary_.lookup(w.text) : nil)
+            ScanToken(id: i, text: w.text, rect: w.rect, entry: w.text.count >= 2 ? Dictionary_.lookup(w.text) : nil, context: used[i])
         }
         return ScanResult(image: image, tokens: tokens)
     }
 
-    nonisolated private static func recognizeWords(_ cg: CGImage) async -> [(text: String, rect: CGRect)] {
+    /// Tags each word (given by its UTF-16 offset in `text`) with the part of speech it has in its sentence.
+    nonisolated static func partsOfSpeech(in text: String, at locs: [Int]) -> [String?] {
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = text
+        tagger.setLanguage(.english, range: text.startIndex..<text.endIndex)
+        let map: [NLTag: String] = [.noun: "n.", .verb: "v.", .adjective: "adj.", .adverb: "adv.",
+                                    .preposition: "prep.", .conjunction: "conj.", .pronoun: "pron."]
+        return locs.map { loc in
+            let i = String.Index(utf16Offset: min(loc, text.utf16.count - 1), in: text)
+            return tagger.tag(at: i, unit: .word, scheme: .lexicalClass).0.flatMap { map[$0] }
+        }
+    }
+
+    /// Words with their boxes, plus the recognised text joined into running prose (lines joined by spaces,
+    /// so a sentence that wraps stays one sentence) and each word's UTF-16 offset in it, for tagging.
+    nonisolated private static func recognizeWords(_ cg: CGImage) async -> ([(text: String, rect: CGRect, loc: Int)], String) {
         await withCheckedContinuation { cont in
             DispatchQueue.global(qos: .userInitiated).async {
                 let req = VNRecognizeTextRequest()
@@ -53,11 +85,14 @@ enum PhotoScanner {
                 req.usesLanguageCorrection = true
                 try? VNImageRequestHandler(cgImage: cg, orientation: .up).perform([req])
                 let ink = InkMap(cg)
-                var out: [(text: String, rect: CGRect)] = []
+                var out: [(text: String, rect: CGRect, loc: Int)] = []
+                var full = ""
                 var hyphenated: Int?          // index of a word broken across lines ("trans-")
                 for obs in req.results ?? [] {
                     guard let cand = obs.topCandidates(1).first else { continue }
                     let s = cand.string
+                    let base = full.utf16.count
+                    full += s + " "
                     let matches = s.matches(of: /[A-Za-z]+(?:['’][A-Za-z]+)*/)
                     for (n, m) in matches.enumerated() {
                         guard let box = (try? cand.boundingBox(for: m.range))?.boundingBox else { continue }
@@ -69,14 +104,14 @@ enum PhotoScanner {
                             out[h].text = word
                             hyphenated = nil
                         }
-                        out.append((word, rect))
+                        out.append((word, rect, base + NSRange(m.range, in: s).location))
                         if n == matches.count - 1 {
                             let rest = s[m.range.upperBound...].trimmingCharacters(in: .whitespaces)
                             hyphenated = (rest == "-" || rest == "‐") ? out.count - 1 : nil
                         }
                     }
                 }
-                cont.resume(returning: out.filter { $0.text.count >= 2 })
+                cont.resume(returning: (out.filter { $0.text.count >= 2 }, full))
             }
         }
     }
@@ -147,7 +182,7 @@ struct ScanFilter: Equatable {
         if OCRCandidates.stopwords.contains(t.key) { return false }
         guard let e = t.entry else { return includeOffList && t.text.count >= 3 && !OCRCandidates.stopwords.contains(t.key) && !(onlyNew && saved.contains(t.key)) }
         guard let lv = Int(e.lv), (minLevel...maxLevel).contains(lv) else { return false }
-        if !pos.isEmpty && pos.isDisjoint(with: e.posTags) { return false }
+        if !pos.isEmpty && pos.isDisjoint(with: t.usedAs) { return false }
         if onlyNew && saved.contains(e.w) { return false }
         return true
     }
@@ -160,7 +195,7 @@ struct ScanFilter: Equatable {
         return parts.joined(separator: "・")
     }
 
-    static let posNames = ["n.": "名詞", "v.": "動詞", "adj.": "形容詞", "adv.": "副詞", "prep.": "介系詞", "conj.": "連接詞", "pron.": "代名詞"]
+    static let posNames = ["n.": "名詞", "v.": "動詞", "adj.": "形容詞", "adv.": "副詞", "prep.": "介系詞", "conj.": "連接詞", "pron.": "代名詞", "aux.": "助動詞"]
 }
 
 /// What an instruction asks for: a new filter, and whether to select / clear.
@@ -324,6 +359,10 @@ struct ScanView: View {
             .onAppear {
                 // level-1 words (have, are, change…) are known by everyone in 高中; start from 2 or the user's level
                 filter.minLevel = max(2, Int(settings.level) ?? 2)
+                #if DEBUG   // simulator testing: SIMCTL_CHILD_LEXI_SCAN_POS=v. (and LEXI_SCAN_LIST=1 to open the list)
+                let env = ProcessInfo.processInfo.environment
+                if let p = env["LEXI_SCAN_POS"] { filter.minLevel = 1; filter.pos = [p]; selected = matchKeys; showList = env["LEXI_SCAN_LIST"] != nil }
+                #endif
             }
         }
     }
@@ -336,14 +375,19 @@ struct ScanView: View {
             ZStack(alignment: .topLeading) {
                 Image(uiImage: result.image).resizable().frame(width: fit.width, height: fit.height)
                 Canvas { g, _ in
-                    let sel = Set(selected), cand = Set(matchKeys)
+                    let sel = Set(selected), cand = Set(matches.map(\.id))
                     for t in result.tokens {
                         let r = rect(t, fit).insetBy(dx: -1, dy: -1)
                         let shape = Path(roundedRect: r, cornerRadius: 3 / zoom)
-                        if sel.contains(t.key) {
+                        // With a part-of-speech filter on, only the occurrences used that way are filled;
+                        // the same word used another way ("booked" while picking nouns) just gets an outline.
+                        let usedThatWay = filter.pos.isEmpty || !filter.pos.isDisjoint(with: t.usedAs)
+                        if sel.contains(t.key) && usedThatWay {
                             g.fill(shape, with: .color(settings.theme.accent.opacity(0.45)))
                             g.stroke(shape, with: .color(settings.theme.accent), lineWidth: 2 / zoom)
-                        } else if cand.contains(t.key) {
+                        } else if sel.contains(t.key) {
+                            g.stroke(shape, with: .color(settings.theme.accent.opacity(0.6)), lineWidth: 1.2 / zoom)
+                        } else if cand.contains(t.id) {
                             g.stroke(shape, with: .color(.orange.opacity(0.95)),
                                      style: StrokeStyle(lineWidth: 1.5 / zoom, dash: [4 / zoom, 3 / zoom]))
                         }
@@ -606,6 +650,12 @@ struct ScanView: View {
 
     // MARK: list + save
 
+    /// How the photo's text uses a word, e.g. "課文中當動詞"; several uses are listed, unknown ones left out.
+    private func usage(of key: String) -> String {
+        let uses = unique(result.tokens.filter { $0.key == key && $0.usedAs.count == 1 }.compactMap { ScanFilter.posNames[$0.usedAs[0]] })
+        return uses.isEmpty ? "" : "課文中當" + uses.joined(separator: "、")
+    }
+
     private var selectionList: some View {
         NavigationStack {
             List { Group {
@@ -614,7 +664,13 @@ struct ScanView: View {
                     let e = Dictionary_.lookup(key)
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(key).font(.headline)
+                            HStack(spacing: 6) {
+                                Text(key).font(.headline)
+                                let used = usage(of: key)
+                                if !used.isEmpty {
+                                    Text(used).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                                }
+                            }
                             Text(e?.zh.joined(separator: "・") ?? "不在字典裡，加入後可以自己填意思").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                         }
                         Spacer()
