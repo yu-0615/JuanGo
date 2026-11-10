@@ -73,6 +73,9 @@ struct ImportTab: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .task {   // simulator testing: SIMCTL_CHILD_LEXI_LOOKUP=word opens the 確認單字 sheet
+                if let t = ProcessInfo.processInfo.environment["LEXI_LOOKUP"] { lookup = LookupTerm(term: t) }
+            }
             .sheet(item: $candidates) { c in OCRPickerView(candidates: c, destination: destination) { n in
                 withAnimation { toast = "已加入 \(n) 個單字" }
             } }
@@ -254,8 +257,12 @@ struct OCRPickerView: View {
                 }
                 if !candidates.unknown.isEmpty {
                     Section {
-                        ForEach(candidates.unknown, id: \.term) { u in row(u.term, u.meaning, level: nil) }
-                    } header: { Text("其他字（加入後可再編輯意思）") }
+                        ForEach(candidates.unknown, id: \.term) { u in
+                            row(u.term, u.meaning.isEmpty ? WordTranslator.shared.cached(u.term)?.meanings.joined(separator: "・") ?? "" : u.meaning, level: nil)
+                        }
+                    } header: { Text("其他字") } footer: {
+                        if WordTranslator.shared.provider != .none { Text("沒有中文意思的字，加入後會用 AI 自動翻譯。") }
+                    }
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("選擇要加入的字")
@@ -293,9 +300,17 @@ struct OCRPickerView: View {
     private func addSelected() {
         var n = 0
         for e in candidates.known where selected.contains(e.w) { Library.add(e, to: destination, in: ctx); n += 1 }
+        var untranslated: [Word] = []
         for u in candidates.unknown where selected.contains(u.term) {
-            Library.add(.custom(u.term, meaning: u.meaning), to: destination, in: ctx); n += 1
+            if u.meaning.isEmpty, let ai = WordTranslator.shared.cached(u.term) {
+                Library.add(ai.entry(for: u.term), to: destination, in: ctx)
+            } else {
+                let w = Library.add(.custom(u.term, meaning: u.meaning), to: destination, in: ctx)
+                if u.meaning.isEmpty { untranslated.append(w) }
+            }
+            n += 1
         }
+        WordTranslator.shared.fill(untranslated, in: ctx)
         onDone(n)
         dismiss()
     }

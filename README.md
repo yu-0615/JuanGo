@@ -7,6 +7,7 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
 - **今天**：每日目標進度環、待複習數、連續天數，一鍵開始今日學習
 - **探索**：左右滑的單字卡，點兩下收進「我的單字」；裝置端 Apple Intelligence 自動產生例句
 - **新增**：輸入英文或中文查字；拍照掃描課本（依句子判斷詞性；拍單字統整頁會直接帶入頁面上的詞性和中文）；從相簿或檔案（txt／csv）匯入
+- **AI 翻譯**：字典沒有的字（查字、掃描、匯入）自動翻成詞性＋繁體中文。可在「設定 › AI 翻譯」貼上自己的免費 [Agnes AI](https://platform.agnes-ai.com) API key；沒有 key 時用裝置上的 Apple Intelligence，再不行就用 Apple 翻譯
 - **字庫**：我的單字、清單，以及內建字庫：
   - 大考詞彙：基礎 2000、進階 4000、學測 6000+（大考中心 6 級）
   - 國中小 1200：教育部國中小基本字彙
@@ -35,6 +36,6 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
 - 多益：[TOEIC Service List 1.2](https://newgeneralservicelist.com/toeic-service-list)（Browne, C. & Culligan, B.），[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)；`words.json` 中由它而來的 `toeic` 標記同樣以 CC BY-SA 4.0 釋出。
 - 雅思、托福字表，以及中文解釋與音標：整理自 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT License），並轉為繁體中文（台灣用語），內容可能有誤。
 - 圖示：[PulsoIcon](https://github.com/CityPulso/PulsoIcon)，授權見該專案的 LICENSE。
-- 所有學習資料只存在自己的裝置上，不會上傳。
+- 所有學習資料只存在自己的裝置上，不會上傳。設定 Agnes API key 後，字典沒有的單字會傳到 Agnes 的伺服器翻譯；key 存在裝置的鑰匙圈，不在程式碼裡。
 
 這是一個高中自主學習專案。

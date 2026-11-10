@@ -709,7 +709,17 @@ struct ScanView: View {
                             if let g = pageEntries[key] {
                                 Text(g.meanings.joined(separator: "・")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                             } else {
-                                Text(e?.zh.joined(separator: "・") ?? "不在字典裡，加入後可以自己填意思").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                if let e {
+                                    Text(e.zh.joined(separator: "・")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                } else if let ai = translator.cached(key) {
+                                    Text((ai.pos.isEmpty ? "" : ai.pos + " ") + ai.meanings.joined(separator: "・") + "（AI）")
+                                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                } else if translator.working.contains(key) {
+                                    Text("AI 翻譯中…").font(.subheadline).foregroundStyle(.secondary)
+                                } else {
+                                    Text(translator.provider == .none ? "不在字典裡，加入後可以自己填意思" : "不在字典裡，加入時用 AI 翻譯")
+                                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                }
                             }
                         }
                         Spacer()
@@ -723,6 +733,7 @@ struct ScanView: View {
                         .listRowBackground(Color.clear)
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
+            .task(id: unknownKeys) { if !unknownKeys.isEmpty { _ = await translator.translate(unknownKeys) } }
             .navigationTitle("已選 \(selected.count) 個")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -733,7 +744,12 @@ struct ScanView: View {
         .presentationDetents([.medium, .large])
     }
 
+    private var translator: WordTranslator { .shared }
+    /// picked words that neither the page nor the dictionary explains
+    private var unknownKeys: [String] { selected.filter { pageEntries[$0] == nil && Dictionary_.lookup($0) == nil } }
+
     private func addSelected() {
+        var untranslated: [Word] = []
         for key in selected {
             if let g = pageEntries[key] {
                 // the page's own part of speech and meanings win over the dictionary's
@@ -750,9 +766,11 @@ struct ScanView: View {
                 if !g.pos.isEmpty { w.pos = g.pos }
                 if !sameSense { w.definition = ""; w.example = ""; w.exampleZh = ""; ExampleStore.shared.backfill([w]) }
             } else if let e = Dictionary_.lookup(key) { Library.add(e, to: destination, in: ctx) }
-            else { Library.add(.custom(key, meaning: ""), to: destination, in: ctx) }
+            else if let ai = translator.cached(key) { Library.add(ai.entry(for: key), to: destination, in: ctx) }
+            else { untranslated.append(Library.add(.custom(key, meaning: ""), to: destination, in: ctx)) }
         }
         try? ctx.save()
+        translator.fill(untranslated, in: ctx)
         onDone(selected.count)
         dismiss()
     }

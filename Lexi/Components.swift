@@ -135,6 +135,7 @@ struct WordConfirmSheet: View {
     @State private var chosen: [String] = []
     @State private var translating = false
     @State private var config: TranslationSession.Configuration?
+    @State private var aiSource: String?
     @State private var showLists = false
     @State private var showEdit = false
     @State private var saved: Word?
@@ -153,6 +154,9 @@ struct WordConfirmSheet: View {
                 SpeakButton(text: entry?.w ?? term)
             }
             meaningPicker
+            if let aiSource, !translating {
+                Text("由 \(aiSource) 翻譯，可能有誤").font(.caption).foregroundStyle(.tertiary)
+            }
             Spacer(minLength: 0)
             if let saved, saved.inMyWords {
                 Button { removeFromMyWords(saved) } label: { Text("取消加入") }
@@ -160,7 +164,7 @@ struct WordConfirmSheet: View {
             } else {
                 Button { add(myWords: true) } label: { Text(destination.map { "加入「\($0.name)」" } ?? "加入我的單字") }
                     .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
-                    .disabled(entry == nil)
+                    .disabled(entry == nil || translating)
             }
             Button { showLists = true } label: { Label("加入其他清單", pulso: "folder.badge.plus") }
                 .buttonStyle(PillButtonStyle())
@@ -172,7 +176,7 @@ struct WordConfirmSheet: View {
         .padding(22)
         .presentationDetents([.height(500), .large])
         .presentationBackground(.regularMaterial)
-        .task { load() }
+        .task { await load() }
         .translationTask(config) { session in
             defer { translating = false }
             guard let r = try? await session.translate(term) else { return }
@@ -197,6 +201,8 @@ struct WordConfirmSheet: View {
     @ViewBuilder private var meaningPicker: some View {
         if translating {
             ProgressView("正在翻譯…")
+        } else if let entry, !entry.pos.isEmpty, entry.zh.count <= 1, let m = chosen.first {
+            Text("\(entry.pos) \(m)").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
         } else if let entry, entry.zh.count > 1 {
             Menu {
                 ForEach(entry.zh, id: \.self) { m in
@@ -206,7 +212,7 @@ struct WordConfirmSheet: View {
                 }
                 Button("選擇多個意思…") { showEdit = true }
             } label: {
-                HStack(spacing: 4) { Text(chosen.first ?? entry.zh[0]); LIcon("chevron.up.chevron.down").font(.caption) }
+                HStack(spacing: 4) { Text((aiSource != nil && !entry.pos.isEmpty ? entry.pos + " " : "") + (chosen.first ?? entry.zh[0])); LIcon("chevron.up.chevron.down").font(.caption) }
                     .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
             }
         } else {
@@ -215,7 +221,7 @@ struct WordConfirmSheet: View {
         }
     }
 
-    private func load() {
+    private func load() async {
         saved = Library.word(term, in: ctx)
         if let saved {
             entry = DictEntry(w: saved.term, ipa: saved.ipa, pos: saved.pos, zh: saved.meanings, def: saved.definition,
@@ -226,7 +232,15 @@ struct WordConfirmSheet: View {
         } else {
             entry = .custom(term, meaning: "")
             translating = true
-            config = .init(source: .init(identifier: "en"), target: .init(identifier: "zh-Hant"))
+            // AI (Agnes / Apple Intelligence) gives part of speech + several meanings; plain Translation is the fallback
+            let translator = WordTranslator.shared
+            let source = translator.cached(term) == nil ? translator.providerName : "AI"
+            if let r = await translator.translate(term) {
+                entry = r.entry(for: term); chosen = r.meanings; aiSource = source
+                translating = false
+            } else {
+                config = .init(source: .init(identifier: "en"), target: .init(identifier: "zh-Hant"))
+            }
         }
     }
 
