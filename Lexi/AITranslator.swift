@@ -132,14 +132,25 @@ nonisolated private let instructions = """
 
 nonisolated enum Agnes {
     static let endpoint = URL(string: "https://apihub.agnes-ai.com/v1/chat/completions")!
-    static let model = "agnes-2.0-flash"
+    /// newest free text model first; the next one is tried when a model name is rejected
+    static let models = ["agnes-3.0-flash", "agnes-2.5-flash"]
 
     struct Failure: LocalizedError {
         let message: String
+        var modelProblem = false
         var errorDescription: String? { message }
     }
 
     static func translate(_ words: [String], key: String) async throws -> [String: AIWordInfo] {
+        var lastError: Error = Failure(message: "沒有可用的模型")
+        for model in models {
+            do { return try await translate(words, key: key, model: model) }
+            catch let f as Failure where f.modelProblem { lastError = f }
+        }
+        throw lastError
+    }
+
+    private static func translate(_ words: [String], key: String, model: String) async throws -> [String: AIWordInfo] {
         let prompt = """
             Words: \(words.joined(separator: ", "))
             Reply with JSON only, no markdown: an object whose keys are the words exactly as given (lowercase) and whose \
@@ -160,7 +171,8 @@ nonisolated enum Agnes {
         guard status == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
                 .flatMap { ($0["error"] as? [String: Any])?["message"] as? String }
-            throw Failure(message: status == 401 ? "API key 無效" : status == 429 ? "請求太頻繁，稍後再試" : (msg ?? "HTTP \(status)"))
+            throw Failure(message: status == 401 ? "API key 無效" : status == 429 ? "請求太頻繁，稍後再試" : (msg ?? "HTTP \(status)"),
+                          modelProblem: status == 404 || (status == 400 && (msg ?? "").lowercased().contains("model")))
         }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = ((root["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any])?["content"] as? String
