@@ -123,12 +123,7 @@ final class WordTranslator {
 
 // MARK: - Agnes AI
 
-nonisolated private let instructions = """
-    You are an English–Chinese dictionary for Taiwanese students. For each English word or phrase, give its \
-    part of speech (n., v., adj., adv., prep., conj., pron., phr.; join several with "/"), its two or three most \
-    common meanings in Traditional Chinese as used in Taiwan (never Simplified Chinese), a short English \
-    definition and the IPA. Fix obvious OCR spelling mistakes only if the word does not exist.
-    """
+nonisolated private let instructions = "English→Traditional Chinese (Taiwan) dictionary for students. Never use Simplified Chinese."
 
 nonisolated enum Agnes {
     static let endpoint = URL(string: "https://apihub.agnes-ai.com/v1/chat/completions")!
@@ -153,8 +148,7 @@ nonisolated enum Agnes {
     private static func translate(_ words: [String], key: String, model: String) async throws -> [String: AIWordInfo] {
         let prompt = """
             Words: \(words.joined(separator: ", "))
-            Reply with JSON only, no markdown: an object whose keys are the words exactly as given (lowercase) and whose \
-            values are {"pos": string, "meanings": [string], "def": string, "ipa": string}.
+            JSON only: {"word": {"pos": "n./v./adj.…", "meanings": ["1–3 common meanings"], "def": "short English definition", "ipa": ""}}
             """
         let body: [String: Any] = [
             "model": model,
