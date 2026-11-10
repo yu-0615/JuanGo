@@ -47,7 +47,12 @@ struct StudyTab: View {
                 Section {
                     deckRows
                 } header: {
-                    Text("內建字庫")
+                    Text("大考詞彙")
+                }
+                Section {
+                    deckRows(Deck.testDecks)
+                } header: {
+                    Text("國中小・檢定考試")
                 } footer: {
                     Text("從內建字庫開始，會把還沒學過的字加入「我的單字」。")
                 }
@@ -163,8 +168,10 @@ struct StudyTab: View {
         .disabled(words.isEmpty)
     }
 
-    @ViewBuilder private var deckRows: some View {
-        ForEach(Deck.studyDecks) { d in
+    @ViewBuilder private var deckRows: some View { deckRows(Deck.examDecks) }
+
+    @ViewBuilder private func deckRows(_ decks: [Deck]) -> some View {
+        ForEach(decks) { d in
             let entries = Dictionary_.all.filter(d.contains)
             Button {
                 let picked = entries.filter { Library.word($0.w, in: ctx) == nil }.shuffled().prefix(settings.dailyGoal)
@@ -1031,7 +1038,7 @@ struct StreakView: View {
         let streak = stats.streak
         let next = BadgeKind.all[0].next(for: streak)
         VStack(spacing: 22) {
-            HStack { Spacer(); ShareLink(item: "我在 Lexi 已經連續學習 \(streak) 天了！") { GlassCircleIcon(systemName: "square.and.arrow.up") }
+            HStack { Spacer(); ShareLink(item: "我在 JuanGo 已經連續學習 \(streak) 天了！") { GlassCircleIcon(systemName: "square.and.arrow.up") }
                 .buttonStyle(.glass).buttonBorderShape(.circle) }
             Spacer()
             ZStack {

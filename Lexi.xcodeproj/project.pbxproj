@@ -189,9 +189,9 @@
 				DEVELOPMENT_TEAM = 5C6SM456YW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Lexi;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Lexi 用相機拍下課本或筆記，辨識出英文單字。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Lexi 從照片辨識英文單字。";
+				INFOPLIST_KEY_CFBundleDisplayName = JuanGo;
+				INFOPLIST_KEY_NSCameraUsageDescription = "JuanGo 用相機拍下課本或筆記，辨識出英文單字。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "JuanGo 從照片辨識英文單字。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -220,9 +220,9 @@
 				DEVELOPMENT_TEAM = 5C6SM456YW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Lexi;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Lexi 用相機拍下課本或筆記，辨識出英文單字。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Lexi 從照片辨識英文單字。";
+				INFOPLIST_KEY_CFBundleDisplayName = JuanGo;
+				INFOPLIST_KEY_NSCameraUsageDescription = "JuanGo 用相機拍下課本或筆記，辨識出英文單字。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "JuanGo 從照片辨識英文單字。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

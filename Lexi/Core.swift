@@ -79,6 +79,8 @@ struct DictEntry: Codable, Hashable, Identifiable {
     var lv: String
     /// spelling variants / short forms (e.g. phone for telephone)
     var alt: [String]? = nil
+    /// word lists the word belongs to besides the 大考 levels: "elem" 國中小 1200, "toeic", "ielts", "toefl"
+    var tags: [String]? = nil
     var id: String { w }
     /// "v./(n.)" -> ["v.", "n."]
     var posTags: [String] { pos.split(separator: "/").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "() ")) } }
@@ -91,6 +93,7 @@ struct DictEntry: Codable, Hashable, Identifiable {
 
 enum Deck: String, CaseIterable, Identifiable {
     case recommended = "推薦探索", basic = "基礎 2000", middle = "進階 4000", advanced = "學測 6000+"
+    case elementary = "國中小 1200", toeic = "多益 TOEIC", ielts = "雅思 IELTS", toefl = "托福 TOEFL"
     var id: String { rawValue }
     var subtitle: String {
         switch self {
@@ -98,6 +101,10 @@ enum Deck: String, CaseIterable, Identifiable {
         case .basic: "大考詞彙第 1–2 級"
         case .middle: "大考詞彙第 3–4 級"
         case .advanced: "大考詞彙第 5–6 級"
+        case .elementary: "教育部國中小基本字彙"
+        case .toeic: "職場與生活常用字"
+        case .ielts: "雅思考試常見字"
+        case .toefl: "托福考試常見字"
         }
     }
     var levels: [String] {
@@ -106,10 +113,27 @@ enum Deck: String, CaseIterable, Identifiable {
         case .basic: ["1", "2"]
         case .middle: ["3", "4"]
         case .advanced: ["5", "6"]
+        default: []
         }
     }
-    func contains(_ e: DictEntry) -> Bool { levels.contains(e.lv) }
-    static var studyDecks: [Deck] { [.basic, .middle, .advanced] }
+    /// the `DictEntry.tags` value of a word-list deck
+    var tag: String? {
+        switch self {
+        case .elementary: "elem"
+        case .toeic: "toeic"
+        case .ielts: "ielts"
+        case .toefl: "toefl"
+        default: nil
+        }
+    }
+    func contains(_ e: DictEntry) -> Bool {
+        if let tag { return e.tags?.contains(tag) ?? false }
+        return levels.contains(e.lv)
+    }
+    /// 大考 decks, then the school / test-prep word lists
+    static var examDecks: [Deck] { [.basic, .middle, .advanced] }
+    static var testDecks: [Deck] { [.elementary, .toeic, .ielts, .toefl] }
+    static var studyDecks: [Deck] { examDecks + testDecks }
 }
 
 /// 大考中心《高中英文參考詞彙表》levels.

@@ -273,9 +273,9 @@ components:
     padding: 64px
 ---
 
-## Lexi 採用方式（先讀這段）
+## JuanGo 採用方式（先讀這段）
 
-This file comes from `npx getdesign@latest add apple` (Apple's web design language). Lexi is a native iOS 26 app, so it follows the rules below and uses native SwiftUI wherever it can:
+This file comes from `npx getdesign@latest add apple` (Apple's web design language). JuanGo is a native iOS 26 app, so it follows the rules below and uses native SwiftUI wherever it can:
 
 - **One accent colour**: the theme colour (`Color.themeAccent`, phoenix red #A3162E by default; the 天空藍 theme is Action Blue #0066CC). No second brand colour, no decorative gradients.
 - **Native containers first**: pages that are lists of things (今天、新增、字庫、我的、設定) are `List` with `.insetGrouped` sections, and each section is the card. Hand-made cards (`.card()`) are only for content that isn't a list (quiz cards, the explore deck).

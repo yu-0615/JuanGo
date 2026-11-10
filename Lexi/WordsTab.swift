@@ -192,14 +192,8 @@ struct WordsTab: View {
 
     private var decks: some View {
         List { Group {
-            ForEach(Deck.studyDecks) { d in
-                NavigationLink(value: ListRoute.deck(d.rawValue)) {
-                    VStack(alignment: .leading) {
-                        Text(d.rawValue).font(.headline)
-                        Text("\(Dictionary_.all.filter(d.contains).count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
+            Section("大考詞彙") { deckLinks(Deck.examDecks) }
+            Section("國中小・檢定考試") { deckLinks(Deck.testDecks) }
             Section("依等級") {
                 ForEach(examLevels, id: \.self) { lv in
                     NavigationLink(value: ListRoute.level(lv)) { listLabel(levelLabel(lv), "chart.bar.fill", Dictionary_.entries(level: lv).count) }
@@ -207,6 +201,17 @@ struct WordsTab: View {
             }
         }.listRowBackground(Color.cardFill) }.themedBackground()
         .listStyle(.insetGrouped)
+    }
+
+    private func deckLinks(_ decks: [Deck]) -> some View {
+        ForEach(decks) { d in
+            NavigationLink(value: ListRoute.deck(d.rawValue)) {
+                VStack(alignment: .leading) {
+                    Text(d.rawValue).font(.headline)
+                    Text("\(Dictionary_.all.filter(d.contains).count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private func listLabel(_ name: String, _ icon: String, _ n: Int) -> some View {

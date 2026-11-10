@@ -187,7 +187,10 @@ struct ScanFilter: Equatable {
     func accepts(_ t: ScanToken, saved: Set<String>) -> Bool {
         if OCRCandidates.stopwords.contains(t.key) { return false }
         guard let e = t.entry else { return includeOffList && t.text.count >= 3 && !OCRCandidates.stopwords.contains(t.key) && !(onlyNew && saved.contains(t.key)) }
-        guard let lv = Int(e.lv), (minLevel...maxLevel).contains(lv) else { return false }
+        // words from the 國中小 / test-prep lists carry no 大考 level: they count as "課外字"
+        if let lv = Int(e.lv) {
+            guard (minLevel...maxLevel).contains(lv) else { return false }
+        } else if !includeOffList { return false }
         if !pos.isEmpty && pos.isDisjoint(with: t.usedAs) { return false }
         if onlyNew && saved.contains(e.w) { return false }
         return true
