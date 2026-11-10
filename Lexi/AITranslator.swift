@@ -18,14 +18,16 @@ struct AIWordInfo: Codable, Hashable {
 }
 
 /// Translates words that are not in the built-in dictionary (scanned off-list words, typed words, imported files).
-/// 1. Agnes AI (free, OpenAI-compatible API) when the user has pasted their own key in 設定 › AI 翻譯
+/// Off by default (設定 › API); when on:
+/// 1. the user's own OpenAI-compatible API (Agnes, OpenRouter, Groq, …) when a key is saved
 /// 2. otherwise Apple Intelligence on the device (free, offline)
+/// When off (or neither works) WordConfirmSheet falls back to Apple Translation.
 /// Results are cached in Application Support/translations.json so a word is only asked once.
 @MainActor @Observable
 final class WordTranslator {
     static let shared = WordTranslator()
 
-    enum Provider: Equatable { case agnes, onDevice, none }
+    enum Provider: Equatable { case api, onDevice, none }
 
     private(set) var cache: [String: AIWordInfo]
     private(set) var working: Set<String> = []
@@ -42,7 +44,8 @@ final class WordTranslator {
     }
 
     var provider: Provider {
-        if !AgnesKey.value.isEmpty { return .agnes }
+        guard AppSettings.shared.aiTranslate else { return .none }
+        if !APIKey.value.isEmpty { return .api }
         #if canImport(FoundationModels)
         if case .available = SystemLanguageModel.default.availability { return .onDevice }
         #endif
@@ -51,9 +54,9 @@ final class WordTranslator {
 
     var providerName: String {
         switch provider {
-        case .agnes: "Agnes AI"
+        case .api: AppSettings.shared.apiModel
         case .onDevice: "Apple Intelligence（裝置端）"
-        case .none: "無法使用"
+        case .none: AppSettings.shared.aiTranslate ? "無法使用" : "關閉"
         }
     }
 
@@ -64,7 +67,7 @@ final class WordTranslator {
         await translate([term])[term.lowercased()]
     }
 
-    /// Several words at once; Agnes gets them in one request (its free tier allows 30 requests a minute).
+    /// Several words at once; the API gets up to 25 per request (free tiers allow few requests a minute).
     func translate(_ terms: [String]) async -> [String: AIWordInfo] {
         let keys = Array(Set(terms.map { $0.lowercased() }))
         var out: [String: AIWordInfo] = [:]
@@ -76,15 +79,17 @@ final class WordTranslator {
         lastError = nil
 
         var got: [String: AIWordInfo] = [:]
-        if provider == .agnes {
+        let provider = provider
+        if provider == .api {
+            let s = AppSettings.shared, key = APIKey.value
             for chunk in stride(from: 0, to: todo.count, by: 25).map({ Array(todo[$0..<min($0 + 25, todo.count)]) }) {
-                do { got.merge(try await Agnes.translate(chunk, key: AgnesKey.value)) { a, _ in a } }
-                catch { lastError = "Agnes：\(error.localizedDescription)"; break }
+                do { got.merge(try await ChatAPI.translate(chunk, baseURL: s.apiBaseURL, model: s.apiModel, key: key)) { a, _ in a } }
+                catch { lastError = error.localizedDescription; break }
             }
         }
-        // Apple Intelligence for whatever Agnes didn't answer (or when there is no key)
+        // Apple Intelligence for whatever the API didn't answer (or when there is no key)
         #if canImport(FoundationModels)
-        if case .available = SystemLanguageModel.default.availability {
+        if provider != .none, case .available = SystemLanguageModel.default.availability {
             for k in todo where got[k] == nil {
                 if let r = await OnDevice.translate(k) { got[k] = r }
             }
@@ -121,31 +126,25 @@ final class WordTranslator {
     }
 }
 
-// MARK: - Agnes AI
+// MARK: - OpenAI-compatible chat API
 
 nonisolated private let instructions = "English→Traditional Chinese (Taiwan) dictionary for students. Never use Simplified Chinese."
 
-nonisolated enum Agnes {
-    static let endpoint = URL(string: "https://apihub.agnes-ai.com/v1/chat/completions")!
-    /// newest free text model first; the next one is tried when a model name is rejected
-    static let models = ["agnes-3.0-flash", "agnes-2.5-flash"]
-
+nonisolated enum ChatAPI {
     struct Failure: LocalizedError {
         let message: String
-        var modelProblem = false
         var errorDescription: String? { message }
     }
 
-    static func translate(_ words: [String], key: String) async throws -> [String: AIWordInfo] {
-        var lastError: Error = Failure(message: "沒有可用的模型")
-        for model in models {
-            do { return try await translate(words, key: key, model: model) }
-            catch let f as Failure where f.modelProblem { lastError = f }
-        }
-        throw lastError
+    static func endpoint(_ base: String) -> URL? {
+        var b = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        while b.hasSuffix("/") { b.removeLast() }
+        if !b.hasSuffix("/chat/completions") { b += "/chat/completions" }
+        return URL(string: b)
     }
 
-    private static func translate(_ words: [String], key: String, model: String) async throws -> [String: AIWordInfo] {
+    static func translate(_ words: [String], baseURL: String, model: String, key: String) async throws -> [String: AIWordInfo] {
+        guard let url = endpoint(baseURL), url.scheme == "https" else { throw Failure(message: "API 網址要用 https://") }
         let prompt = """
             Words: \(words.joined(separator: ", "))
             JSON only: {"word": {"pos": "n./v./adj.…", "meanings": ["1–3 common meanings"], "def": "short English definition", "ipa": ""}}
@@ -155,7 +154,7 @@ nonisolated enum Agnes {
             "temperature": 0.2,
             "messages": [["role": "system", "content": instructions], ["role": "user", "content": prompt]],
         ]
-        var req = URLRequest(url: endpoint, timeoutInterval: 40)
+        var req = URLRequest(url: url, timeoutInterval: 40)
         req.httpMethod = "POST"
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -165,8 +164,7 @@ nonisolated enum Agnes {
         guard status == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
                 .flatMap { ($0["error"] as? [String: Any])?["message"] as? String }
-            throw Failure(message: status == 401 ? "API key 無效" : status == 429 ? "請求太頻繁，稍後再試" : (msg ?? "HTTP \(status)"),
-                          modelProblem: status == 404 || (status == 400 && (msg ?? "").lowercased().contains("model")))
+            throw Failure(message: status == 401 ? "API key 無效" : status == 429 ? "請求太頻繁，稍後再試" : (msg ?? "HTTP \(status)"))
         }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = ((root["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any])?["content"] as? String
@@ -218,10 +216,10 @@ nonisolated enum OnDevice {
 
 // MARK: - Keychain
 
-/// The user's own Agnes API key, kept in the Keychain (never in the source code or UserDefaults).
-nonisolated enum AgnesKey {
+/// The user's own API key, kept in the Keychain (never in the source code or UserDefaults).
+nonisolated enum APIKey {
     private static let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                               kSecAttrService as String: "JuanGo.agnes", kSecAttrAccount as String: "apiKey"]
+                                               kSecAttrService as String: "JuanGo.api", kSecAttrAccount as String: "apiKey"]
 
     static var value: String {
         get {

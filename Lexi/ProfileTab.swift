@@ -196,7 +196,7 @@ struct SettingsView: View {
                         }.listRowBackground(Color.cardFill) }.themedBackground().navigationTitle("探索")
                     } label: { row("safari.fill", "探索", "探索卡片的音標與例句翻譯") }
                     NavigationLink { AITranslationSettings() } label: {
-                        row("sparkles", "AI 翻譯", "字典沒有的字：\(WordTranslator.shared.providerName)")
+                        row("sparkles", "API", "AI 翻譯字典沒有的字：\(WordTranslator.shared.providerName)")
                     }
                 }
                 Section("外觀") {
@@ -215,7 +215,7 @@ struct SettingsView: View {
                     LabeledContent("字典", value: "\(Dictionary_.all.count) 個內建單字")
                     LabeledContent("版本", value: "1.4")
                 } footer: {
-                    Text("大考詞彙與分級：大學入學考試中心《高中英文參考詞彙表》（111 學年度起適用），僅供非營利學習使用。國中小 1200：教育部十二年國教英語文課綱附錄五。多益：TOEIC Service List 1.2（CC BY-SA 4.0）。雅思、托福字表與中文解釋、音標整理自 ECDICT（MIT 授權），內容可能有誤，可在單字頁自行編輯。學習資料只存在這台裝置上；設定 Agnes API key 後，字典沒有的字會傳給 Agnes 翻譯。")
+                    Text("大考詞彙與分級：大學入學考試中心《高中英文參考詞彙表》（111 學年度起適用），僅供非營利學習使用。國中小 1200：教育部十二年國教英語文課綱附錄五。多益：TOEIC Service List 1.2（CC BY-SA 4.0）。雅思、托福字表與中文解釋、音標整理自 ECDICT（MIT 授權），內容可能有誤，可在單字頁自行編輯。學習資料只存在這台裝置上；打開 API 翻譯並設定 key 後，字典沒有的字會傳到該 API 翻譯。")
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("設定")
@@ -253,44 +253,57 @@ struct SettingsView: View {
     }
 }
 
-/// 設定 › AI 翻譯: where words the dictionary doesn't know get translated.
+/// 設定 › API: translate words the dictionary doesn't know with a language model (off by default — it's slow).
 struct AITranslationSettings: View {
-    @State private var key = AgnesKey.value
-    @State private var saved = !AgnesKey.value.isEmpty
+    @Environment(AppSettings.self) private var settings
+    @State private var key = APIKey.value
+    @State private var saved = !APIKey.value.isEmpty
     @State private var testing = false
     @State private var testResult: String?
     private var translator: WordTranslator { .shared }
 
     var body: some View {
+        @Bindable var settings = settings
         Form { Group {
             Section {
-                LabeledContent("目前使用", value: translator.providerName)
-                LabeledContent("已翻譯", value: "\(translator.cache.count) 個字")
+                Toggle("用 AI 翻譯字典沒有的字", isOn: $settings.aiTranslate)
+                if settings.aiTranslate { LabeledContent("目前使用", value: translator.providerName) }
             } footer: {
-                Text("掃描、匯入或查字時遇到字典沒有的字，會自動翻譯成詞性和繁體中文意思。")
+                Text(settings.aiTranslate
+                     ? "查字、掃描、匯入遇到字典沒有的字，會用下面的 API 翻成詞性和繁體中文；沒有 key 時用裝置上的 Apple Intelligence。AI 回應要幾秒到十幾秒。"
+                     : "關閉時用 Apple 翻譯，比較快，但只有一個意思、沒有詞性。")
             }
-            Section {
-                SecureField("貼上 API key", text: $key)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button(saved ? "更新" : "儲存") {
-                    AgnesKey.value = key; saved = !AgnesKey.value.isEmpty; testResult = nil
-                }.disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
-                if saved {
-                    Button(testing ? "測試中…" : "測試翻譯 serendipity") { Task { await test() } }.disabled(testing)
-                    if let testResult { Text(testResult).font(.footnote).foregroundStyle(.secondary) }
-                    Button("移除 key", role: .destructive) { AgnesKey.value = ""; key = ""; saved = false; testResult = nil }
+            if settings.aiTranslate {
+                Section {
+                    TextField("API 網址", text: $settings.apiBaseURL)
+                        .keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("模型", text: $settings.apiModel)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    SecureField("API key", text: $key)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button(saved ? "更新 key" : "儲存 key") {
+                        APIKey.value = key; saved = !APIKey.value.isEmpty; testResult = nil
+                    }.disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                    if saved {
+                        Button(testing ? "測試中…" : "測試翻譯 serendipity") { Task { await test() } }.disabled(testing)
+                        if let testResult { Text(testResult).font(.footnote).foregroundStyle(.secondary) }
+                        Button("移除 key", role: .destructive) { APIKey.value = ""; key = ""; saved = false; testResult = nil }
+                    }
+                } header: { Text("API") } footer: {
+                    Text("任何 OpenAI 相容的 API 都可以（Agnes、OpenRouter、Groq、Gemini…），填 API 網址（到 /v1 為止）、模型名稱和自己的 key。預設是 Agnes AI 的免費模型，key 在 platform.agnes-ai.com 免費申請。key 只存在這台裝置的鑰匙圈；設定後字典沒有的字會傳到該 API 的伺服器。")
                 }
-            } header: { Text("Agnes AI（免費）") } footer: {
-                Text("到 platform.agnes-ai.com 免費註冊並建立 API key，貼在這裡。key 只存在這台裝置的鑰匙圈。設定後，字典沒有的字會傳到 Agnes 的伺服器翻譯；沒有設定時改用裝置上的 Apple Intelligence（需要支援的機型），兩者都不能用時用 Apple 翻譯。")
+                if translator.cache.count > 0 {
+                    Section { LabeledContent("已翻譯", value: "\(translator.cache.count) 個字") }
+                }
             }
         }.listRowBackground(Color.cardFill) }.themedBackground()
-        .navigationTitle("AI 翻譯")
+        .navigationTitle("API")
     }
 
     private func test() async {
         testing = true; defer { testing = false }
         do {
-            let r = try await Agnes.translate(["serendipity"], key: AgnesKey.value)
+            let r = try await ChatAPI.translate(["serendipity"], baseURL: settings.apiBaseURL, model: settings.apiModel, key: APIKey.value)
             if let i = r["serendipity"] { testResult = "成功：\(i.pos) \(i.meanings.joined(separator: "、"))" }
             else { testResult = "有回應，但看不懂格式" }
         } catch { testResult = "失敗：\(error.localizedDescription)" }

@@ -232,7 +232,7 @@ struct WordConfirmSheet: View {
         } else {
             entry = .custom(term, meaning: "")
             translating = true
-            // AI (Agnes / Apple Intelligence) gives part of speech + several meanings; plain Translation is the fallback
+            // AI (the user's API / Apple Intelligence, when turned on) gives part of speech + several meanings; Apple Translation is the fallback
             let translator = WordTranslator.shared
             let source = translator.cached(term) == nil ? translator.providerName : "AI"
             if let r = await translator.translate(term) {

@@ -282,11 +282,17 @@ enum SRS {
     var listShowMeaning: Bool { didSet { d.set(listShowMeaning, forKey: "listShowMeaning") } }
     var detailAutoSpeak: Bool { didSet { d.set(detailAutoSpeak, forKey: "detailAutoSpeak") } }
     var exploreShowIPA: Bool { didSet { d.set(exploreShowIPA, forKey: "exploreShowIPA") } }
+    /// translate words the dictionary doesn't know with a language model (off by default: it's slow)
+    var aiTranslate: Bool { didSet { d.set(aiTranslate, forKey: "aiTranslate") } }
+    /// any OpenAI-compatible chat API; the key lives in the Keychain (APIKey)
+    var apiBaseURL: String { didSet { d.set(apiBaseURL, forKey: "apiBaseURL") } }
+    var apiModel: String { didSet { d.set(apiModel, forKey: "apiModel") } }
 
     init() {
         d.register(defaults: ["language": "zh-Hant", "level": "3", "dailyGoal": 10, "reminderMinutes": 20 * 60,
                               "themeID": "phoenix", "fontStyle": 0, "showTranslation": true, "haptics": true,
-                              "speechRate": 0.45, "listShowMeaning": true, "exploreShowIPA": true])
+                              "speechRate": 0.45, "listShowMeaning": true, "exploreShowIPA": true,
+                              "apiBaseURL": "https://apihub.agnes-ai.com/v1", "apiModel": "agnes-3.0-flash"])
         onboarded = d.bool(forKey: "onboarded")
         language = d.string(forKey: "language")!
         let storedLevel = d.string(forKey: "level")!
@@ -307,6 +313,9 @@ enum SRS {
         listShowMeaning = d.bool(forKey: "listShowMeaning")
         detailAutoSpeak = d.bool(forKey: "detailAutoSpeak")
         exploreShowIPA = d.bool(forKey: "exploreShowIPA")
+        aiTranslate = d.bool(forKey: "aiTranslate")
+        apiBaseURL = d.string(forKey: "apiBaseURL")!
+        apiModel = d.string(forKey: "apiModel")!
     }
 
     var theme: AppTheme { AppTheme.all.first { $0.id == themeID } ?? AppTheme.all[0] }
