@@ -281,6 +281,15 @@ struct ListWordsView: View {
         .navigationTitle(title)
         .themedBackground()
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
+        .toolbar {
+            if !routeWords.isEmpty {
+                ToolbarItem {
+                    Button("分享清單", pulso: "square.and.arrow.up") {
+                        if let url = try? Backup.write(Backup.list(name: title, words: routeWords)) { presentShareSheet(url) }
+                    }
+                }
+            }
+        }
     }
 
     private var title: String {

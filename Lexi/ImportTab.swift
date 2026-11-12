@@ -12,6 +12,7 @@ struct ImportTab: View {
     @State private var query = ""
     @FocusState private var focused: Bool
     @State private var lookup: LookupTerm?
+    @State private var sharedFile: BackupFile?
     @State private var detail: Word?
     @State private var destination: WordList?
     @State private var toast: String?
@@ -45,7 +46,7 @@ struct ImportTab: View {
                     Section("其他加入方式") {
                         sourceRow("拍照掃描", "camera.viewfinder") { showCamera = true }
                         sourceRow("從相簿選照片", "photo.stack") { showPhotoPicker = true }
-                        sourceRow("匯入檔案（txt、csv）", "doc.text") { showFileImporter = true }
+                        sourceRow("匯入檔案（txt、csv、JuanGo 清單）", "doc.text") { showFileImporter = true }
                     }
                     Section("最近新增") { recentList }
                 }
@@ -73,6 +74,7 @@ struct ImportTab: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .backupImport($sharedFile, ctx: ctx) { r in withAnimation { toast = r } }
             .task {   // simulator testing: SIMCTL_CHILD_LEXI_LOOKUP=word opens the 確認單字 sheet
                 if let t = ProcessInfo.processInfo.environment["LEXI_LOOKUP"] { lookup = LookupTerm(term: t) }
             }
@@ -100,8 +102,12 @@ struct ImportTab: View {
                     photoItem = nil
                 }
             }
-            .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.plainText, .commaSeparatedText, .text]) { result in
+            .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.plainText, .commaSeparatedText, .text, .json]) { result in
                 guard case .success(let url) = result else { return }
+                if url.pathExtension.lowercased() == "json" {   // a JuanGo list or backup someone shared
+                    do { sharedFile = try Backup.read(url) } catch { withAnimation { toast = error.localizedDescription } }
+                    return
+                }
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 if let text = try? String(contentsOf: url, encoding: .utf8) { candidates = OCRCandidates(text: text, fromFile: true) }

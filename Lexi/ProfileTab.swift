@@ -142,6 +142,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
     @State private var confirmWipe = false
+    @State private var pickBackup = false
+    @State private var pendingBackup: BackupFile?
+    @State private var message: String?
 
     var body: some View {
         @Bindable var settings = settings
@@ -206,6 +209,15 @@ struct SettingsView: View {
                     }
                     ThemeGrid(selection: $settings.themeID).padding(.vertical, 6)
                 }
+                Section {
+                    Button("匯出備份") {
+                        do { presentShareSheet(try Backup.write(Backup.full(ctx))) }
+                        catch { message = "匯出失敗：\(error.localizedDescription)" }
+                    }
+                    Button("從備份還原") { pickBackup = true }
+                } header: { Text("備份") } footer: {
+                    Text("備份檔包含所有單字、熟練度、清單、複習紀錄和設定（不含 API key）。存到「檔案」或 iCloud 雲碟，刪掉 App 或換手機後從這裡還原。")
+                }
                 Section("資料") {
                     Button("重設所有學習進度") { confirmReset = true }
                     Button("清除所有單字與紀錄", role: .destructive) { confirmWipe = true }
@@ -220,6 +232,24 @@ struct SettingsView: View {
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("設定")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
+            .fileImporter(isPresented: $pickBackup, allowedContentTypes: [.json]) { result in
+                switch result {
+                case .success(let url):
+                    do { pendingBackup = try Backup.read(url) } catch { message = error.localizedDescription }
+                case .failure(let e): message = e.localizedDescription
+                }
+            }
+            .backupImport($pendingBackup, ctx: ctx) { message = "還原完成：\($0)" }
+            #if DEBUG
+            .task {   // simulator testing: SIMCTL_CHILD_LEXI_EXPORT=1 opens the share sheet for a backup
+                if ProcessInfo.processInfo.environment["LEXI_EXPORT"] != nil, let url = try? Backup.write(Backup.full(ctx)) {
+                    try? await Task.sleep(for: .seconds(1)); presentShareSheet(url)
+                }
+            }
+            #endif
+            .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+                Button("好") { message = nil }
+            }
             .confirmationDialog("重設所有學習進度？", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("重設", role: .destructive) { resetProgress() }
             } message: { Text("單字會保留，但熟練度和學習紀錄會歸零。") }

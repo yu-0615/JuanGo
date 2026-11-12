@@ -5,6 +5,12 @@ import SwiftData
 struct LexiApp: App {
     @State private var settings = AppSettings.shared
 
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["LEXI_BACKUP_SELFTEST"] != nil { Backup.selfTest() }
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
