@@ -13,6 +13,8 @@ struct ImportTab: View {
     @FocusState private var focused: Bool
     @State private var lookup: LookupTerm?
     @State private var sharedFile: BackupFile?
+    @State private var askCode = false
+    @State private var codeInput = ""
     @State private var detail: Word?
     @State private var destination: WordList?
     @State private var toast: String?
@@ -47,6 +49,7 @@ struct ImportTab: View {
                         sourceRow("拍照掃描", "camera.viewfinder") { showCamera = true }
                         sourceRow("從相簿選照片", "photo.stack") { showPhotoPicker = true }
                         sourceRow("匯入檔案（txt、csv、JuanGo 清單）", "doc.text") { showFileImporter = true }
+                        sourceRow("輸入分享代碼", "square.and.arrow.down.fill") { codeInput = ""; askCode = true }
                     }
                     Section("最近新增") { recentList }
                 }
@@ -75,6 +78,18 @@ struct ImportTab: View {
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .backupImport($sharedFile, ctx: ctx) { r in withAnimation { toast = r } }
+            .alert("輸入分享代碼", isPresented: $askCode) {
+                TextField("例如 K7Q3-P9XM", text: $codeInput).textInputAutocapitalization(.characters).autocorrectionDisabled()
+                Button("取消", role: .cancel) {}
+                Button("查詢") {
+                    let code = codeInput
+                    Task {
+                        busy = true; defer { busy = false }
+                        do { sharedFile = try await Cloud.shared.fetch(code: code) }
+                        catch { withAnimation { toast = error.localizedDescription } }
+                    }
+                }
+            } message: { Text("朋友分享清單時拿到的 8 碼代碼，不用登入也能加入。") }
             .task {   // simulator testing: SIMCTL_CHILD_LEXI_LOOKUP=word opens the 確認單字 sheet
                 if let t = ProcessInfo.processInfo.environment["LEXI_LOOKUP"] { lookup = LookupTerm(term: t) }
             }

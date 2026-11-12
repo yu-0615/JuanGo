@@ -244,6 +244,9 @@ struct ListWordsView: View {
     @Environment(\.modelContext) private var ctx
     @Query private var words: [Word]
     @State private var lookup: LookupTerm?
+    @State private var sharing = false
+    @State private var shareResult: String?
+    @State private var shareCodeValue: String?
 
     var body: some View {
         List { Group {
@@ -281,15 +284,37 @@ struct ListWordsView: View {
         .navigationTitle(title)
         .themedBackground()
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
+        .overlay { if sharing { ProgressView("上傳中…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: Radius.lg)) } }
+        .alert(shareCodeValue == nil ? "分享清單" : "已建立分享代碼",
+               isPresented: Binding(get: { shareResult != nil }, set: { if !$0 { shareResult = nil; shareCodeValue = nil } })) {
+            if let c = shareCodeValue {
+                Button("拷貝代碼") { UIPasteboard.general.string = c }
+                ShareLink(item: "用 JuanGo 輸入分享代碼 \(c)，加入我的單字清單「\(title)」") { Text("傳給朋友") }
+            }
+            Button("好", role: .cancel) {}
+        } message: { Text(shareResult ?? "") }
         .toolbar {
             if !routeWords.isEmpty {
                 ToolbarItem {
-                    Button("分享清單", pulso: "square.and.arrow.up") {
-                        if let url = try? Backup.write(Backup.list(name: title, words: routeWords)) { presentShareSheet(url) }
-                    }
+                    Menu {
+                        Button("產生分享代碼") { Task { await shareCode() } }
+                        Button("分享成檔案") {
+                            if let url = try? Backup.write(Backup.list(name: title, words: routeWords)) { presentShareSheet(url) }
+                        }
+                    } label: { Label("分享清單", pulso: "square.and.arrow.up") }
                 }
             }
         }
+    }
+
+    private func shareCode() async {
+        guard Cloud.shared.signedIn else { shareResult = "要先到「設定 › 帳號與同步」登入，才能產生分享代碼。也可以改用「分享成檔案」。"; return }
+        sharing = true; defer { sharing = false }
+        do {
+            let code = try await Cloud.shared.share(Backup.list(name: title, words: routeWords), key: "\(route)")
+            shareCodeValue = Cloud.pretty(code)
+            shareResult = "分享代碼：\(Cloud.pretty(code))\n別人在「新增 › 輸入分享代碼」輸入就能加入這個清單（\(routeWords.count) 個字）。之後再分享一次會更新同一個代碼的內容。"
+        } catch { shareResult = error.localizedDescription }
     }
 
     private var title: String {

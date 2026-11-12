@@ -26,6 +26,9 @@ struct LexiApp: App {
 
 struct RootView: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(\.modelContext) private var ctx
+    @Environment(\.scenePhase) private var phase
+    private var cloud: Cloud { .shared }
     /// Debug hook: `SIMCTL_CHILD_LEXI_ONBOARD=1` shows the onboarding again without resetting settings.
     static var forceOnboarding: Bool {
         #if DEBUG
@@ -45,6 +48,19 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: settings.onboarded)
+        // the emailed sign-in link comes back as juango://login-callback#access_token=…
+        .onOpenURL { url in
+            if cloud.handle(url), cloud.signedIn {
+                Task { if let r = try? await cloud.sync(ctx) { cloud.notice = "已登入 \(cloud.session?.email ?? "")，\(r)" } }
+            }
+        }
+        .onChange(of: phase) { _, p in
+            if p == .background { cloud.backgroundPush(ctx) }
+            if p == .active, cloud.signedIn { Task { try? await cloud.sync(ctx) } }
+        }
+        .alert(cloud.notice ?? "", isPresented: Binding(get: { cloud.notice != nil }, set: { if !$0 { cloud.notice = nil } })) {
+            Button("好") { cloud.notice = nil }
+        }
     }
 }
 

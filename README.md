@@ -14,7 +14,8 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
   - 多益 TOEIC、雅思 IELTS、托福 TOEFL
 - **練習**：翻卡片、英翻中、中翻英、克漏字、聽力、拼單字；自動安排或手動挑選題型、無盡模式
 - **我的**：連續天數、學習日曆、熟練階梯、成就勳章
-- **備份與分享**：設定 › 備份可匯出／還原全部資料（單字、熟練度、清單、複習紀錄、設定）；清單頁右上角可把清單分享成檔案，別人在「新增 › 匯入檔案」加入
+- **備份與分享**：設定 › 備份可匯出／還原全部資料（單字、熟練度、清單、複習紀錄、設定）；清單頁右上角可把清單分享成檔案或 8 碼分享代碼，別人在「新增 › 匯入檔案／輸入分享代碼」加入
+- **帳號與同步**：用 Email 連結登入（Supabase），單字和進度自動備份到雲端，換手機登入就回來
 - 7 組主題色，頁面底色與區塊跟著主題色調變化，支援深色模式
 
 ## 設計
@@ -37,6 +38,6 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
 - 多益：[TOEIC Service List 1.2](https://newgeneralservicelist.com/toeic-service-list)（Browne, C. & Culligan, B.），[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)；`words.json` 中由它而來的 `toeic` 標記同樣以 CC BY-SA 4.0 釋出。
 - 雅思、托福字表，以及中文解釋與音標：整理自 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT License），並轉為繁體中文（台灣用語），內容可能有誤。
 - 圖示：[PulsoIcon](https://github.com/CityPulso/PulsoIcon)，授權見該專案的 LICENSE。
-- 所有學習資料只存在自己的裝置上，不會上傳。打開 API 翻譯並設定 key 後，字典沒有的單字會傳到該 API 的伺服器翻譯；key 存在裝置的鑰匙圈，不在程式碼裡。
+- 學習資料預設只存在自己的裝置上；登入帳號後會同步到 JuanGo 的 Supabase 專案（每個人只能讀寫自己的資料，分享清單只能用代碼取得，資料表與權限規則見 `supabase/schema.sql`）。打開 API 翻譯並設定 key 後，字典沒有的單字會傳到該 API 的伺服器翻譯；key 存在裝置的鑰匙圈，不在程式碼裡。
 
 這是一個高中自主學習專案。

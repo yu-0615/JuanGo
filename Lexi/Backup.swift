@@ -157,7 +157,7 @@ enum Backup {
     /// Merges a file into this device; nothing already here is deleted.
     /// Words already saved keep whichever progress was reviewed more recently.
     @discardableResult
-    static func restore(_ f: BackupFile, into ctx: ModelContext) -> String {
+    static func restore(_ f: BackupFile, into ctx: ModelContext, settings: Bool = true) -> String {
         var existing: [String: Word] = [:]
         for w in (try? ctx.fetch(FetchDescriptor<Word>())) ?? [] { existing[w.term] = w }
         var added = 0, updated = 0
@@ -217,7 +217,7 @@ enum Backup {
             }
         }
 
-        if f.kind == .backup, let s = f.settings { AppSettings.shared.apply(backup: s) }
+        if f.kind == .backup, settings, let s = f.settings { AppSettings.shared.apply(backup: s) }
         try? ctx.save()
 
         var parts = ["新增 \(added) 個單字"]

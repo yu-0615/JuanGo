@@ -150,6 +150,12 @@ struct SettingsView: View {
         @Bindable var settings = settings
         NavigationStack {
             Form { Group {
+                Section {
+                    NavigationLink { AccountView() } label: {
+                        row("person.crop.circle.fill", "帳號與同步",
+                            Cloud.shared.session.map { "已登入 \($0.email)" } ?? "登入後單字自動備份到雲端")
+                    }
+                }
                 Section("學習") {
                     NavigationLink {
                         Form { Group {
@@ -337,5 +343,84 @@ struct AITranslationSettings: View {
             if let i = r["serendipity"] { testResult = "成功：\(i.pos) \(i.meanings.joined(separator: "、"))" }
             else { testResult = "有回應，但看不懂格式" }
         } catch { testResult = "失敗：\(error.localizedDescription)" }
+    }
+}
+
+/// 設定 › 帳號與同步: sign in with an emailed link; the backup syncs to the cloud, and share codes are listed here.
+struct AccountView: View {
+    @Environment(\.modelContext) private var ctx
+    @State private var email = ""
+    @State private var sending = false
+    @State private var sentTo: String?
+    @State private var message: String?
+    @State private var lists: [Cloud.SharedList] = []
+    private var cloud: Cloud { .shared }
+
+    var body: some View {
+        Form { Group {
+            if let s = cloud.session {
+                Section {
+                    LabeledContent("帳號", value: s.email)
+                    LabeledContent("上次同步", value: cloud.lastSync?.formatted(date: .abbreviated, time: .shortened) ?? "還沒同步")
+                    Button(cloud.syncing ? "同步中…" : "立即同步") {
+                        Task { do { message = try await cloud.sync(ctx) } catch { message = error.localizedDescription } }
+                    }.disabled(cloud.syncing)
+                } footer: {
+                    Text("打開 App 時會先下載雲端的資料合併，離開 App 時自動上傳。換手機或重裝後登入同一個 Email，單字和進度就會回來。合併時不會刪除東西，所以在一台裝置刪掉的字，另一台還會留著。")
+                }
+                Section {
+                    if lists.isEmpty { Text("還沒有分享過清單").foregroundStyle(.secondary) }
+                    ForEach(lists) { l in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(l.name).font(.headline)
+                                Text("\(l.word_count) 個字").font(.footnote).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(Cloud.pretty(l.code)).font(.body.monospaced()).textSelection(.enabled)
+                        }
+                        .swipeActions {
+                            Button("停止分享", role: .destructive) {
+                                Task { try? await cloud.deleteList(l.code); await loadLists() }
+                            }
+                        }
+                        .contextMenu { Button("拷貝代碼") { UIPasteboard.general.string = Cloud.pretty(l.code) } }
+                    }
+                } header: { Text("我分享的清單") } footer: {
+                    Text("在清單頁右上角「分享」可以產生代碼。左滑可以停止分享，代碼就失效。")
+                }
+                Section { Button("登出", role: .destructive) { cloud.signOut(); lists = [] } }
+            } else {
+                Section {
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress).textContentType(.emailAddress)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button(sending ? "寄送中…" : "寄登入連結") {
+                        Task {
+                            sending = true; defer { sending = false }
+                            do { try await cloud.sendLink(to: email); sentTo = email }
+                            catch { message = error.localizedDescription }
+                        }
+                    }.disabled(sending || !email.contains("@") || !email.contains("."))
+                    if let sentTo {
+                        Text("已寄到 \(sentTo)。在這支 iPhone 上打開信，點「Sign in」就會回到 JuanGo 完成登入。沒收到的話看看垃圾郵件。")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: { Text("登入") } footer: {
+                    Text("不用密碼：輸入 Email，用信裡的連結登入。登入後單字、熟練度、清單和複習紀錄會備份到雲端（API key 不會上傳）。")
+                }
+            }
+        }.listRowBackground(Color.cardFill) }.themedBackground()
+        .navigationTitle("帳號與同步")
+        .task { await loadLists() }
+        .onChange(of: cloud.signedIn) { _, _ in Task { await loadLists() } }
+        .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+            Button("好") { message = nil }
+        }
+    }
+
+    private func loadLists() async {
+        guard cloud.signedIn else { return }
+        lists = (try? await cloud.myLists()) ?? []
     }
 }
