@@ -39,8 +39,8 @@ struct OnboardingView: View {
         }
         .sheet(isPresented: $customGoal) {
             VStack(spacing: 20) {
-                Text("自訂每日新字").font(.title2.bold())
-                Text("\(settings.dailyGoal) 個 / 天").font(.system(size: 44, weight: .semibold)).contentTransition(.numericText())
+                Text("自訂每日新字").font(.app(.title2, .bold))
+                Text("\(settings.dailyGoal) 個 / 天").font(.app(size: 44, .semibold)).contentTransition(.numericText())
                 Stepper("", value: $settings.dailyGoal, in: 1...100).labelsHidden()
                 Button("完成") { customGoal = false }.buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
             }
@@ -52,7 +52,7 @@ struct OnboardingView: View {
 
     private var languagePage: some View {
         VStack(spacing: 22) {
-            Text("選擇解釋語言").font(.title.bold())
+            Text("選擇解釋語言").font(.app(.title, .bold))
             StackGrid(items: [("zh-Hant", "繁體中文"), ("en", "English"), ("ja", "日本語"), ("ko", "한국어")], columns: 2, spacing: 14) { item in
                     let (code, name) = item
                     let on = settings.language == code
@@ -70,12 +70,12 @@ struct OnboardingView: View {
     private var testPage: some View {
         VStack(spacing: 18) {
             if let w = test.current {
-                Text("\(test.index + 1) / \(test.words.count)").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                Text(w.w).font(.system(size: 40, weight: .semibold)).id(w.w)
+                Text("\(test.index + 1) / \(test.words.count)").font(.app(.subheadline).monospacedDigit()).foregroundStyle(.secondary)
+                Text(w.w).font(.app(size: 40, .semibold)).id(w.w)
                     .transition(.push(from: .trailing))
                 Text(test.revealed ? w.zh.prefix(2).joined(separator: " · ") : " ")
-                    .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
-                Text(test.revealed ? "原本知道這個意思嗎？" : " ").font(.caption).foregroundStyle(.secondary)
+                    .font(.app(.title3, .semibold)).foregroundStyle(.secondary)
+                Text(test.revealed ? "原本知道這個意思嗎？" : " ").font(.app(.caption)).foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Button(test.revealed ? "確認" : "會") { answer(test.revealed ? 1 : nil) }
                         .buttonStyle(PillButtonStyle(fill: .knowGreen))
@@ -91,10 +91,10 @@ struct OnboardingView: View {
 
     private var resultPage: some View {
         VStack(spacing: 14) {
-            Text("你的推定程度").font(.title2.bold())
-            Text(levelLabel(test.estimate)).font(.system(size: 72, weight: .semibold))
-            Text(LevelTest.blurb(test.estimate)).font(.headline)
-            Text("會從接近你程度的單字開始。").font(.subheadline).foregroundStyle(.secondary)
+            Text("你的推定程度").font(.app(.title2, .bold))
+            Text(levelLabel(test.estimate)).font(.app(size: 72, .semibold))
+            Text(LevelTest.blurb(test.estimate)).font(.app(.headline))
+            Text("會從接近你程度的單字開始。").font(.app(.subheadline)).foregroundStyle(.secondary)
             if !test.didAdvanced {
                 Button("再答 10 題進階測試") {
                     test.startAdvanced()
@@ -109,18 +109,18 @@ struct OnboardingView: View {
     private var goalPage: some View {
         @Bindable var settings = settings
         return VStack(spacing: 18) {
-            Text("設定學習目標").font(.title.bold())
+            Text("設定學習目標").font(.app(.title, .bold))
             HStack(spacing: 10) {
                 ForEach([(5, "輕鬆", ""), (10, "標準", "約 10 分鐘"), (20, "衝刺", "")], id: \.0) { n, name, sub in
                     let on = settings.dailyGoal == n
                     Button { settings.dailyGoal = n } label: {
                         VStack(spacing: 4) {
-                            Text(name).font(.headline)
+                            Text(name).font(.app(.headline))
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text("\(n)").font(.system(size: 30, weight: .semibold))
-                                Text("個 / 天").font(.caption)
+                                Text("\(n)").font(.app(size: 30, .semibold))
+                                Text("個 / 天").font(.app(.caption))
                             }
-                            Text(sub).font(.caption2)
+                            Text(sub).font(.app(.caption2))
                         }
                         .frame(maxWidth: .infinity, minHeight: 96)
                     }
@@ -129,9 +129,9 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 20)
             Button(![5, 10, 20].contains(settings.dailyGoal) ? "自訂數量：\(settings.dailyGoal) 個 / 天" : "自訂數量") { customGoal = true }
-                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
             VStack(spacing: 10) {
-                Toggle(isOn: $settings.reminderOn) { Label("學習與複習提醒", pulso: "bell.fill").font(.headline) }
+                Toggle(isOn: $settings.reminderOn) { Label("學習與複習提醒", pulso: "bell.fill").font(.app(.headline)) }
                 if settings.reminderOn {
                     DatePicker("提醒時間", selection: $settings.reminderDate, displayedComponents: .hourAndMinute)
                 }
@@ -145,26 +145,25 @@ struct OnboardingView: View {
         @Bindable var settings = settings
         return ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("選擇主題").font(.title.bold()).frame(maxWidth: .infinity)
+                Text("選擇主題").font(.app(.title, .bold)).frame(maxWidth: .infinity)
                 Picker("外觀", selection: $settings.appearance) {
                     Text("跟隨系統").tag(0); Text("淺色").tag(1); Text("深色").tag(2)
                 }.pickerStyle(.segmented)
-                Text("字體").font(.headline)
+                Text("字體").font(.app(.headline))
                 HStack(spacing: 8) {
-                    ForEach(Array(["系統", "圓體", "襯線", "等寬"].enumerated()), id: \.offset) { i, name in
+                    ForEach(Array(AppFont.options.enumerated()), id: \.offset) { i, o in
                         let on = settings.fontStyle == i
                         Button { settings.fontStyle = i } label: {
                             VStack(spacing: 2) {
-                                Text("Aa").font(.title3.bold())
-                                Text(name).font(.caption)
+                                Text("Aa").font(.system(.title3, design: o.swiftDesign, weight: .bold))
+                                Text(o.name).font(AppFont.preview(i, size: 12))
                             }
-                            .fontDesign([Font.Design.default, .rounded, .serif, .monospaced][i])
                             .frame(maxWidth: .infinity, minHeight: 50)
                         }
                         .buttonStyle(ChoiceTileStyle(selected: on))
                     }
                 }
-                HStack { Text("主題色").font(.headline); Spacer(); Text(settings.theme.name).foregroundStyle(.secondary) }
+                HStack { Text("主題色").font(.app(.headline)); Spacer(); Text(settings.theme.name).foregroundStyle(.secondary) }
                 ThemeGrid(selection: $settings.themeID)
             }
             .padding(.horizontal, 20)
@@ -177,7 +176,7 @@ struct OnboardingView: View {
     @ViewBuilder private var bottomBar: some View {
         HStack(spacing: 10) {
             if page > 0 {
-                Button { back() } label: { LIcon("chevron.left").font(.headline) }
+                Button { back() } label: { LIcon("chevron.left").font(.app(.headline)) }
                     .buttonStyle(PillButtonStyle()).frame(width: 64)
             }
             switch page {
@@ -222,13 +221,13 @@ struct ThemeGrid: View {
         StackGrid(items: AppTheme.all, columns: 3, spacing: 10) { t in
                 Button { selection = t.id } label: {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Aa").font(.system(.title3).weight(.bold)).foregroundStyle(t.accent)
+                        Text("Aa").font(.app(.title3, .bold)).foregroundStyle(t.accent)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(10)
                         Spacer(minLength: 0)
                         HStack {
-                            Text(t.name).font(.caption.weight(.bold)).foregroundStyle(.white)
+                            Text(t.name).font(.app(.caption, .bold)).foregroundStyle(.white)
                             Spacer()
-                            if selection == t.id { LIcon("checkmark").font(.caption.bold()).foregroundStyle(.white) }
+                            if selection == t.id { LIcon("checkmark").font(.app(.caption, .bold)).foregroundStyle(.white) }
                         }
                         .padding(.horizontal, 10).frame(height: 28).background(t.accent)
                     }
@@ -267,11 +266,11 @@ struct Hero: View {
     var body: some View {
         let current = word ?? samples[tick % samples.count]
         VStack(alignment: .leading, spacing: 10) {
-            Text(current).font(.system(size: 32, weight: .bold)).contentTransition(.opacity)
+            Text(current).font(.app(size: 32, .bold)).contentTransition(.opacity)
             if let e = Dictionary_.lookup(current) {
-                Text("\(e.pos)  /\(e.ipa)/").font(.caption).foregroundStyle(.secondary)
+                Text("\(e.pos)  /\(e.ipa)/").font(.app(.caption)).foregroundStyle(.secondary)
                 // During the level test the hero must not reveal the answer.
-                Text(word == nil ? (e.zh.first ?? "") : "？").font(.title3.weight(.bold)).foregroundStyle(.tint)
+                Text(word == nil ? (e.zh.first ?? "") : "？").font(.app(.title3, .bold)).foregroundStyle(.tint)
             }
             ForEach(0..<3, id: \.self) { k in
                 Capsule().fill(Color.secondary.opacity(0.15)).frame(width: [180, 150, 110][k], height: 6)
@@ -283,7 +282,7 @@ struct Hero: View {
         // DESIGN.md: the one shadow in the system, for an object resting on a surface.
         .shadow(color: .black.opacity(0.22), radius: 15, x: 3, y: 5)
         .overlay(alignment: .topTrailing) {
-            LIcon("bookmark.fill").font(.system(size: 34)).foregroundStyle(Color.themeAccent)
+            LIcon("bookmark.fill").font(.app(size: 34)).foregroundStyle(Color.themeAccent)
                 .offset(y: -4).padding(.trailing, 22)
         }
         .rotationEffect(.degrees(Double(page % 2 == 0 ? -2 : 2)))

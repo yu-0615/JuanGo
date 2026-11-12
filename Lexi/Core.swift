@@ -227,7 +227,18 @@ enum Dictionary_ {
         return Array((prefix + inner).prefix(limit))
     }
 
-    static func entries(level: String) -> [DictEntry] { all.filter { $0.lv == level } }
+    /// entries per level and per deck, built once (filtering 10k entries inside view bodies dropped frames)
+    private static let byLevel: [String: [DictEntry]] = Dictionary(grouping: all, by: \.lv)
+    static func entries(level: String) -> [DictEntry] { byLevel[level] ?? [] }
+    @MainActor private static var deckCache: [Deck: [DictEntry]] = [:]
+    @MainActor static func entries(deck: Deck) -> [DictEntry] {
+        if let e = deckCache[deck] { return e }
+        let e = all.filter(deck.contains)
+        deckCache[deck] = e
+        return e
+    }
+    /// entries grouped by part of speech, for picking quiz distractors
+    static let byPos: [String: [DictEntry]] = Dictionary(grouping: all.filter { !$0.zh.isEmpty }, by: \.pos)
 }
 
 // MARK: - Spaced repetition
@@ -318,7 +329,13 @@ enum SRS {
         apiModel = d.string(forKey: "apiModel")!
     }
 
-    var theme: AppTheme { AppTheme.all.first { $0.id == themeID } ?? AppTheme.all[0] }
+    var theme: AppTheme {
+        if let t = cachedTheme, t.id == themeID { return t }
+        let t = AppTheme.all.first { $0.id == themeID } ?? AppTheme.all[0]
+        cachedTheme = t
+        return t
+    }
+    @ObservationIgnored private var cachedTheme: AppTheme?
     var colorScheme: ColorScheme? { appearance == 1 ? .light : appearance == 2 ? .dark : nil }
     var fontDesign: Font.Design { [.default, .rounded, .serif, .monospaced][min(3, max(0, fontStyle))] }
     var reminderDate: Date {
@@ -367,10 +384,20 @@ struct AppTheme: Identifiable, Hashable {
     /// Swatch paper colour, only used to preview the theme in the theme picker.
     var swatch: Color { Color(hex: bgHex) }
     /// Page paper: a faint wash of the theme's own hue (light: almost white, dark: deep tinted night).
-    var background: Color { tone(light: (0.07, 0.975), dark: (0.30, 0.20)) }
+    var background: Color { Self.tones(for: self).background }
     /// Section surface: the same hue one step deeper than the page, so stacks read as pressed-in
     /// blocks of colour instead of white cards (light and dark both go darker).
-    var section: Color { tone(light: (0.13, 0.915), dark: (0.30, 0.135)) }
+    var section: Color { Self.tones(for: self).section }
+
+    /// Built once per theme: a fresh dynamic UIColor on every access made SwiftUI see a "new" colour on each
+    /// render and repaint every row background.
+    @MainActor private static var toneCache: [String: (background: Color, section: Color)] = [:]
+    @MainActor private static func tones(for t: AppTheme) -> (background: Color, section: Color) {
+        if let c = toneCache[t.id] { return c }
+        let c = (t.tone(light: (0.07, 0.975), dark: (0.30, 0.20)), t.tone(light: (0.13, 0.915), dark: (0.30, 0.135)))
+        toneCache[t.id] = c
+        return c
+    }
 
     /// A colour with the accent's hue at the given saturation/brightness. Saturation is scaled by
     /// how colourful the accent is, so a grey theme (石墨) stays a neutral grey.
@@ -452,7 +479,7 @@ struct PillButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let button = Button(role: configuration.role, action: configuration.trigger) {
             configuration.label
-                .font(.headline)
+                .font(.app(.headline))
                 .foregroundStyle(foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(minHeight: max(44, height) - 30)
         }
@@ -557,30 +584,66 @@ enum Library {
 
 // MARK: - Stats
 
+/// Everything the home and profile screens show, worked out in one pass when it's made (the old computed
+/// properties re-scanned every log and word on each access, several times per frame).
 struct Stats {
     let logs: [ReviewLog]
     let words: [Word]
+    let activeDays: Set<Date>
+    let streak: Int
+    let newToday: Int
+    let studiedToday: Int
+    let learnedTotal: Int
+    let masteredTotal: Int
+    let dueCount: Int
+    let distribution: [Int]
+    private let perDay: [Date: Int]
 
-    private var cal: Calendar { .current }
-    var activeDays: Set<Date> { Set(logs.map { cal.startOfDay(for: $0.date) }) }
+    init(logs: [ReviewLog], words: [Word]) {
+        self.logs = logs
+        self.words = words
+        let day = Self.logPart(logs)
+        activeDays = day.activeDays; perDay = day.perDay; newToday = day.newToday
+        studiedToday = day.studiedToday; streak = day.streak
 
-    var streak: Int {
-        var day = cal.startOfDay(for: .now)
-        let days = activeDays
-        if !days.contains(day) { day = cal.date(byAdding: .day, value: -1, to: day)! }
-        var n = 0
-        while days.contains(day) { n += 1; day = cal.date(byAdding: .day, value: -1, to: day)! }
-        return n
+        var learned = 0, mastered = 0, due = 0
+        var dist = [Int](repeating: 0, count: 6)
+        for w in words {
+            if w.srsLevel > 0 { learned += 1 }
+            if w.isMastered { mastered += 1 }
+            if w.isDue { due += 1 }
+            if (0...5).contains(w.srsLevel) { dist[w.srsLevel] += 1 }
+        }
+        learnedTotal = learned; masteredTotal = mastered; dueCount = due; distribution = dist
     }
-    var todayLogs: [ReviewLog] { logs.filter { cal.isDateInToday($0.date) } }
-    var newToday: Int { Set(todayLogs.filter(\.wasNew).map(\.term)).count }
-    var studiedToday: Int { Set(todayLogs.map(\.term)).count }
-    var learnedTotal: Int { words.filter { $0.srsLevel > 0 }.count }
-    var masteredTotal: Int { words.filter(\.isMastered).count }
-    var dueCount: Int { words.filter(\.isDue).count }
-    var distribution: [Int] { (0...5).map { lv in words.filter { $0.srsLevel == lv }.count } }
 
-    func count(on day: Date) -> Int { Set(logs.filter { cal.isDate($0.date, inSameDayAs: day) }.map(\.term)).count }
+    func count(on day: Date) -> Int { perDay[Calendar.current.startOfDay(for: day)] ?? 0 }
+
+    private struct LogPart { var activeDays: Set<Date>; var perDay: [Date: Int]; var newToday: Int; var studiedToday: Int; var streak: Int }
+    /// Logs only ever grow, so the day-by-day part is reused until another log is added or the day changes.
+    nonisolated(unsafe) private static var logMemo: (key: String, part: LogPart)?
+    private static func logPart(_ logs: [ReviewLog]) -> LogPart {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        let key = "\(logs.count)|\(logs.first?.date.timeIntervalSince1970 ?? 0)|\(logs.last?.date.timeIntervalSince1970 ?? 0)|\(today.timeIntervalSince1970)"
+        if Thread.isMainThread, let m = logMemo, m.key == key { return m.part }
+        var termsByDay: [Date: Set<String>] = [:]
+        var newTerms: Set<String> = []
+        for l in logs {
+            let d = cal.startOfDay(for: l.date)
+            termsByDay[d, default: []].insert(l.term)
+            if d == today && l.wasNew { newTerms.insert(l.term) }
+        }
+        let active = Set(termsByDay.keys)
+        var day = today
+        if !active.contains(day) { day = cal.date(byAdding: .day, value: -1, to: day)! }
+        var n = 0
+        while active.contains(day) { n += 1; day = cal.date(byAdding: .day, value: -1, to: day)! }
+        let part = LogPart(activeDays: active, perDay: termsByDay.mapValues(\.count), newToday: newTerms.count,
+                           studiedToday: termsByDay[today]?.count ?? 0, streak: n)
+        if Thread.isMainThread { logMemo = (key, part) }
+        return part
+    }
 }
 
 struct BadgeKind: Identifiable {

@@ -39,7 +39,7 @@ struct FlowLayout: Layout {
 struct TappableSentence: View {
     let sentence: String
     var highlight: String = ""
-    var font: Font = .title3.weight(.semibold)
+    var font: Font? = nil   // nil = .app(.title3, .semibold)
     var onTap: (String) -> Void
 
     private var tokens: [(id: Int, text: String, word: String)] {
@@ -54,7 +54,7 @@ struct TappableSentence: View {
     // height right (a custom flow layout overlapped the translation below it).
     var body: some View {
         Text(attributed)
-            .font(font)
+            .font(font ?? .app(.title3, .semibold))
             .lineSpacing(4)
             .fixedSize(horizontal: false, vertical: true)
             .environment(\.openURL, OpenURLAction { url in
@@ -92,7 +92,7 @@ struct SpeakButton: View {
 struct Chip: View {
     let text: String
     var body: some View {
-        Text(text).font(.subheadline.weight(.semibold))
+        Text(text).font(.app(.subheadline, .semibold))
             .padding(.horizontal, 14).padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
@@ -104,13 +104,13 @@ struct Toast: View {
     var onClose: () -> Void
     var body: some View {
         HStack {
-            LIcon("checkmark.circle.fill").foregroundStyle(.green).font(.title3)
+            LIcon("checkmark.circle.fill").foregroundStyle(.green).font(.app(.title3))
             Button { action?() } label: {
                 HStack(spacing: 4) { Text(text); if action != nil { LIcon("chevron.right") } }
-                    .font(.subheadline.bold()).foregroundStyle(.tint)
+                    .font(.app(.subheadline, .bold)).foregroundStyle(.tint)
             }.buttonStyle(.plain)
             Spacer()
-            Button(action: onClose) { LIcon("xmark").font(.subheadline.bold()) }.buttonStyle(.plain)
+            Button(action: onClose) { LIcon("xmark").font(.app(.subheadline, .bold)) }.buttonStyle(.plain)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
@@ -143,19 +143,19 @@ struct WordConfirmSheet: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
-                Text("確認單字").font(.headline)
+                Text("確認單字").font(.app(.headline))
                 Spacer()
                 Button { dismiss() } label: { GlassCircleIcon(systemName: "xmark") }
                     .buttonStyle(.glass).buttonBorderShape(.circle)
             }
-            Text(entry?.w ?? term).font(.system(size: 40, weight: .semibold)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(entry?.w ?? term).font(.app(size: 40, .semibold)).minimumScaleFactor(0.5).lineLimit(1)
             HStack(spacing: 10) {
                 if let ipa = entry?.ipa, !ipa.isEmpty { Text("[\(ipa)]").foregroundStyle(.secondary) }
                 SpeakButton(text: entry?.w ?? term)
             }
             meaningPicker
             if let aiSource, !translating {
-                Text("由 \(aiSource) 翻譯，可能有誤").font(.caption).foregroundStyle(.tertiary)
+                Text("由 \(aiSource) 翻譯，可能有誤").font(.app(.caption)).foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
             if let saved, saved.inMyWords {
@@ -202,7 +202,7 @@ struct WordConfirmSheet: View {
         if translating {
             ProgressView("正在翻譯…")
         } else if let entry, !entry.pos.isEmpty, entry.zh.count <= 1, let m = chosen.first {
-            Text("\(entry.pos) \(m)").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+            Text("\(entry.pos) \(m)").font(.app(.title3, .semibold)).foregroundStyle(.secondary)
         } else if let entry, entry.zh.count > 1 {
             Menu {
                 ForEach(entry.zh, id: \.self) { m in
@@ -212,12 +212,12 @@ struct WordConfirmSheet: View {
                 }
                 Button("選擇多個意思…") { showEdit = true }
             } label: {
-                HStack(spacing: 4) { Text((aiSource != nil && !entry.pos.isEmpty ? entry.pos + " " : "") + (chosen.first ?? entry.zh[0])); LIcon("chevron.up.chevron.down").font(.caption) }
-                    .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                HStack(spacing: 4) { Text((aiSource != nil && !entry.pos.isEmpty ? entry.pos + " " : "") + (chosen.first ?? entry.zh[0])); LIcon("chevron.up.chevron.down").font(.app(.caption)) }
+                    .font(.app(.title3, .semibold)).foregroundStyle(.secondary)
             }
         } else {
             Text(chosen.first ?? "找不到解釋，可以自己編輯")
-                .font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                .font(.app(.title3, .semibold)).foregroundStyle(.secondary)
         }
     }
 
@@ -272,7 +272,7 @@ struct AddToListSheet: View {
         NavigationStack {
             List { Group {
                 Section {
-                    Button { creating = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.headline) }
+                    Button { creating = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.app(.headline)) }
                 }
                 Section {
                     Button { onPick(nil); dismiss() } label: { Label("我的單字", pulso: "folder.fill") }
@@ -316,25 +316,25 @@ struct EditWordSheet: View {
     var body: some View {
         NavigationStack {
             Form { Group {
-                Section("單字") { TextField("單字", text: $entry.w).font(.title3.bold()).textInputAutocapitalization(.never) }
+                Section("單字") { TextField("單字", text: $entry.w).font(.app(.title3, .bold)).textInputAutocapitalization(.never) }
                 Section("選擇要保留的意思") {
                     ForEach(Array(entry.zh.enumerated()), id: \.offset) { i, m in
                         Button { toggle(m) } label: {
                             HStack {
                                 LIcon(selected.contains(m) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selected.contains(m) ? Color.themeAccent : .secondary).font(.title3)
+                                    .foregroundStyle(selected.contains(m) ? Color.themeAccent : .secondary).font(.app(.title3))
                                 VStack(alignment: .leading) {
-                                    Text(m).font(.headline)
-                                    if !entry.pos.isEmpty { Text(entry.pos).font(.caption).foregroundStyle(.secondary) }
+                                    Text(m).font(.app(.headline))
+                                    if !entry.pos.isEmpty { Text(entry.pos).font(.app(.caption)).foregroundStyle(.secondary) }
                                 }
                                 Spacer()
-                                if i == 0 { Text("最常用").font(.caption).foregroundStyle(.secondary) }
+                                if i == 0 { Text("最常用").font(.app(.caption)).foregroundStyle(.secondary) }
                             }
                         }.foregroundStyle(.primary)
                     }
                     HStack {
                         TextField("新增自己的意思", text: $custom)
-                        Button { addCustom() } label: { LIcon("plus.circle.fill").font(.title2) }
+                        Button { addCustom() } label: { LIcon("plus.circle.fill").font(.app(.title2)) }
                             .disabled(custom.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
                 }
@@ -399,18 +399,18 @@ struct MasteryCard: View {
         let top = max(1, distribution.max() ?? 1)
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("熟練階梯").font(.system(.headline).weight(.bold))
+                Text("熟練階梯").font(.app(.headline, .bold))
                 Spacer()
                 Button { showInfo = true } label: { LIcon("questionmark.circle") }.buttonStyle(.borderless).foregroundStyle(.secondary)
             }
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<6, id: \.self) { i in
                     VStack(spacing: 6) {
-                        Text("\(distribution[i])").font(.caption.weight(.bold)).monospacedDigit()
+                        Text("\(distribution[i])").font(.app(.caption, .bold)).monospacedDigit()
                         RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                             .fill(i == 0 ? Color.secondary.opacity(0.18) : Color.themeAccent.opacity(0.25 + Double(i) * 0.15))
                             .frame(height: 8 + 62 * CGFloat(distribution[i]) / CGFloat(top))
-                        Text(levelNames[i]).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(levelNames[i]).font(.app(.caption2, .semibold)).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -450,7 +450,7 @@ struct BadgeMedal: View {
                                       : AnyShapeStyle(Color.secondary.opacity(0.14)))
                 Hexagon().inset(size * 0.09).stroke(earned ? Color.white.opacity(0.55) : Color.secondary.opacity(0.25),
                                                      style: StrokeStyle(lineWidth: 1.5, dash: earned ? [] : [3, 3]))
-                LIcon(kind.symbol).font(.system(size: size * 0.34, weight: .bold))
+                LIcon(kind.symbol).font(.app(size: size * 0.34, .bold))
                     .foregroundStyle(earned ? Color.white : Color.secondary.opacity(0.6))
             }
             .frame(width: size, height: size)
@@ -459,8 +459,8 @@ struct BadgeMedal: View {
                     Capsule().fill(i < tier ? Color.themeAccent : Color.secondary.opacity(0.25)).frame(width: 8, height: 3)
                 }
             }
-            Text(kind.title).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-            Text("\(value) / \(kind.next(for: value))").font(.caption.bold()).monospacedDigit()
+            Text(kind.title).font(.app(.caption2, .semibold)).foregroundStyle(.secondary)
+            Text("\(value) / \(kind.next(for: value))").font(.app(.caption, .bold)).monospacedDigit()
         }
     }
 }
@@ -477,7 +477,7 @@ private struct InsetHexagon: Shape {
 struct GlassCircleIcon: View {
     let systemName: String
     var body: some View {
-        LIcon(systemName).font(.system(size: 17, weight: .semibold))
+        LIcon(systemName).font(.app(size: 17, .semibold))
             .frame(width: 29, height: 29)
     }
 }
@@ -499,8 +499,8 @@ struct ScoreRing: View {
                     .rotationEffect(.degrees(-90))
             }
             VStack(spacing: 0) {
-                Text("\(Int((Double(good) / Double(total) * 100).rounded()))%").font(.system(size: 40, weight: .bold))
-                Text("一次就會").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("\(Int((Double(good) / Double(total) * 100).rounded()))%").font(.app(size: 40, .bold))
+                Text("一次就會").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
             }
         }
         .onAppear { withAnimation(.easeOut(duration: 0.9)) { shown = true } }

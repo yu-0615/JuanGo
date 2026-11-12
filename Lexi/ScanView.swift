@@ -476,7 +476,7 @@ struct ScanView: View {
         .overlay(alignment: .bottomTrailing) { zoomControls }
         .overlay(alignment: .top) {
             if let feedback {
-                Text(feedback).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
+                Text(feedback).font(.app(.subheadline, .semibold)).foregroundStyle(.white)
                     .padding(.horizontal, 14).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(.black.opacity(0.7)))
                     .padding(.top, 8)
@@ -510,7 +510,7 @@ struct ScanView: View {
                 } label: { LIcon("arrow.down.right.and.arrow.up.left").padding(8) }
             }
         }
-        .font(.caption.bold())
+        .font(.app(.caption, .bold))
         .foregroundStyle(.white)
         .padding(3)
         .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(.black.opacity(0.65)))
@@ -585,7 +585,7 @@ struct ScanView: View {
                     filterMenu
                     ForEach(examples, id: \.self) { ex in
                         Button(ex) { instruction = ex; run() }
-                            .font(.footnote.weight(.semibold))
+                            .font(.app(.footnote, .semibold))
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.primary.opacity(0.07)))
                     }
@@ -596,10 +596,10 @@ struct ScanView: View {
             HStack {
                 Button { showList = true } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(selected.isEmpty ? "點一下字或畫圈圈選" : "已選 \(selected.count) 個").font(.headline)
+                        Text(selected.isEmpty ? "點一下字或畫圈圈選" : "已選 \(selected.count) 個").font(.app(.headline))
                         Text(selected.isEmpty ? "黃色虛線框：符合「\(filter.summary)」的 \(matchKeys.count) 個字"
                              : selected.prefix(6).joined(separator: ", ") + (selected.count > 6 ? "…" : ""))
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            .font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }.buttonStyle(.plain)
                 Spacer()
@@ -631,7 +631,7 @@ struct ScanView: View {
             Toggle("包含 7000 單以外的字", isOn: $filter.includeOffList)
         } label: {
             Label(filter.summary, pulso: "line.3.horizontal.decrease.circle.fill")
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote, .semibold))
                 .padding(.horizontal, 12).padding(.vertical, 7)
                 .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.themeAccent.opacity(0.18)))
         }
@@ -696,40 +696,40 @@ struct ScanView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
-                                Text(key).font(.headline)
+                                Text(key).font(.app(.headline))
                                 if let g = pageEntries[key] {
-                                    if !g.pos.isEmpty { Text(g.pos).font(.caption.weight(.semibold)).foregroundStyle(.tint) }
+                                    if !g.pos.isEmpty { Text(g.pos).font(.app(.caption, .semibold)).foregroundStyle(.tint) }
                                 } else {
                                     let used = usage(of: key)
                                     if !used.isEmpty {
-                                        Text(used).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                                        Text(used).font(.app(.caption, .semibold)).foregroundStyle(.tint)
                                     }
                                 }
                             }
                             if let g = pageEntries[key] {
-                                Text(g.meanings.joined(separator: "・")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                Text(g.meanings.joined(separator: "・")).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                             } else {
                                 if let e {
-                                    Text(e.zh.joined(separator: "・")).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                    Text(e.zh.joined(separator: "・")).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                                 } else if let ai = translator.cached(key) {
                                     Text((ai.pos.isEmpty ? "" : ai.pos + " ") + ai.meanings.joined(separator: "・") + "（AI）")
-                                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                        .font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                                 } else if translator.working.contains(key) {
-                                    Text("AI 翻譯中…").font(.subheadline).foregroundStyle(.secondary)
+                                    Text("AI 翻譯中…").font(.app(.subheadline)).foregroundStyle(.secondary)
                                 } else {
                                     Text(translator.provider == .none ? "不在字典裡，加入後可以自己填意思" : "不在字典裡，加入時用 AI 翻譯")
-                                        .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                                        .font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                                 }
                             }
                         }
                         Spacer()
-                        if let e { Text(levelLabel(e.lv)).font(.caption.bold()).foregroundStyle(.secondary) }
+                        if let e { Text(levelLabel(e.lv)).font(.app(.caption, .bold)).foregroundStyle(.secondary) }
                         if saved.contains(key) { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
                     }
                 }
                 .onDelete { selected.remove(atOffsets: $0) }
                 if !result.glossary.isEmpty {
-                    Text("偵測到單字統整頁，詞性和中文意思照頁面上的寫法加入。").font(.footnote).foregroundStyle(.secondary)
+                    Text("偵測到單字統整頁，詞性和中文意思照頁面上的寫法加入。").font(.app(.footnote)).foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()

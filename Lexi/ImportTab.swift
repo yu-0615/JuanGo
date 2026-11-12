@@ -141,7 +141,7 @@ struct ImportTab: View {
             ForEach(suggestions) { e in
                 Button { lookup = LookupTerm(term: e.w) } label: {
                     HStack {
-                        Text(e.w).font(.headline).foregroundStyle(.primary)
+                        Text(e.w).font(.app(.headline)).foregroundStyle(.primary)
                         Text(e.zh.first ?? "").foregroundStyle(.secondary).lineLimit(1)
                         Spacer()
                         if Library.word(e.w, in: ctx) != nil { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
@@ -159,7 +159,7 @@ struct ImportTab: View {
     /// Recently added words; swipe or long-press to delete.
     @ViewBuilder private var recentList: some View {
         if recent.isEmpty {
-            Text("還沒有新增任何字。在上方搜尋，或拍下課本、講義、螢幕截圖。").font(.subheadline).foregroundStyle(.secondary)
+            Text("還沒有新增任何字。在上方搜尋，或拍下課本、講義、螢幕截圖。").font(.app(.subheadline)).foregroundStyle(.secondary)
         } else {
             ForEach(recent.prefix(60)) { w in
                 Button { detail = w } label: {
@@ -310,10 +310,10 @@ struct OCRPickerView: View {
             HStack {
                 LIcon(selected.contains(term) ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selected.contains(term) ? Color.themeAccent : .secondary)
-                Text(term).font(.headline)
+                Text(term).font(.app(.headline))
                 Text(meaning).foregroundStyle(.secondary)
                 Spacer()
-                if let level { Text(level).font(.caption.bold()).foregroundStyle(.secondary) }
+                if let level { Text(level).font(.app(.caption, .bold)).foregroundStyle(.secondary) }
             }
         }.foregroundStyle(.primary)
     }

@@ -17,6 +17,9 @@ struct LexiApp: App {
                 .environment(settings)
                 .tint(settings.theme.accent)
                 .fontDesign(settings.fontDesign)
+                .font(.app(.body))
+                .task { AppFont.shared.prepare(); AppFont.shared.applyAppearance() }
+                .onChange(of: settings.fontStyle) { AppFont.shared.styleChanged() }
                 .preferredColorScheme(settings.colorScheme)
                 .environment(\.locale, .zh)
         }

@@ -37,17 +37,17 @@ struct ProfileTab: View {
     /// Streak up front, drawn in the flame colour.
     private var streakCard: some View {
         HStack(spacing: 16) {
-            LIcon("flame.fill").font(.system(size: 40))
+            LIcon("flame.fill").font(.app(size: 40))
                 .foregroundStyle(Color.themeAccent)
                 .frame(width: 64, height: 64)
                 .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(stats.streak)").font(.system(size: 40, weight: .bold))
-                    Text("天連續學習").font(.headline)
+                    Text("\(stats.streak)").font(.app(size: 40, .bold))
+                    Text("天連續學習").font(.app(.headline))
                 }
                 Text(stats.studiedToday > 0 ? "今天已經練過了，明天見！" : "今天還沒練習，別讓火熄掉。")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.app(.subheadline)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
@@ -56,7 +56,7 @@ struct ProfileTab: View {
 
     private func statRow(_ title: String, _ n: Int, _ icon: String) -> some View {
         LabeledContent {
-            Text("\(n)").font(.body.weight(.semibold)).monospacedDigit().contentTransition(.numericText())
+            Text("\(n)").font(.app(.body, .semibold)).monospacedDigit().contentTransition(.numericText())
         } label: {
             Label { Text(title) } icon: { LIcon(icon).foregroundStyle(.tint) }
         }
@@ -74,14 +74,14 @@ struct ProfileTab: View {
         let chosen = selectedDay ?? today
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("學習日曆").font(.system(.headline).weight(.bold))
+                Text("學習日曆").font(.app(.headline, .bold))
                 Spacer()
-                Text("近 5 週・\(counts.filter { $0 > 0 }.count) 天有練習").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("近 5 週・\(counts.filter { $0 > 0 }.count) 天有練習").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
             }
             VStack(spacing: 6) {
                 HStack(spacing: 6) {
                     ForEach(["一", "二", "三", "四", "五", "六", "日"], id: \.self) {
-                        Text($0).font(.caption2.weight(.bold)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                        Text($0).font(.app(.caption2, .bold)).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                     }
                 }
                 ForEach(0..<5, id: \.self) { week in
@@ -95,7 +95,7 @@ struct ProfileTab: View {
                                     .overlay(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous)
                                         .strokeBorder(cal.isDate(d, inSameDayAs: chosen) ? Color.primary : (future ? Color.secondary.opacity(0.25) : .clear), lineWidth: 1.5))
                                     .overlay {
-                                        Text(d.formatted(.dateTime.day())).font(.system(size: 10, weight: .semibold))
+                                        Text(d.formatted(.dateTime.day())).font(.app(size: 10, .semibold))
                                             .foregroundStyle(n > 0 && Double(n) / Double(top) > 0.4 ? Color.onAccent : Color.secondary)
                                     }
                             }
@@ -111,7 +111,7 @@ struct ProfileTab: View {
                 Spacer()
                 Text("練了 \(stats.count(on: chosen)) 個字").fontWeight(.bold)
             }
-            .font(.subheadline)
+            .font(.app(.subheadline))
         }
         .padding(.vertical, 6)
     }
@@ -120,9 +120,9 @@ struct ProfileTab: View {
         let earned = BadgeKind.all.map { $0.earned(for: BadgeKind.value($0.id, stats: stats)) }.reduce(0, +)
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("成就").font(.system(.headline).weight(.bold))
+                Text("成就").font(.app(.headline, .bold))
                 Spacer()
-                Text("已解鎖 \(earned) 枚").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text("已解鎖 \(earned) 枚").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
             }
             HStack(alignment: .top) {
                 ForEach(BadgeKind.all) { k in
@@ -208,12 +208,22 @@ struct SettingsView: View {
                         row("sparkles", "API", "AI 翻譯字典沒有的字：\(WordTranslator.shared.providerName)")
                     }
                 }
-                Section("外觀") {
+                Section {
                     Picker("外觀", selection: $settings.appearance) { Text("跟隨系統").tag(0); Text("淺色").tag(1); Text("深色").tag(2) }
                     Picker("字體", selection: $settings.fontStyle) {
-                        Text("系統").tag(0); Text("圓體").tag(1); Text("襯線").tag(2); Text("等寬").tag(3)
+                        ForEach(Array(AppFont.options.enumerated()), id: \.offset) { i, o in
+                            Text(o.cjkName == "蘋方" ? o.name : "\(o.name)（中文\(o.cjkName)）").tag(i)
+                        }
                     }
                     ThemeGrid(selection: $settings.themeID).padding(.vertical, 6)
+                } header: { Text("外觀") } footer: {
+                    if let d = AppFont.shared.downloading {
+                        Text("正在下載中文\(d)字體…下載好之前先用蘋方顯示。")
+                    } else if let f = AppFont.shared.failed {
+                        Text("中文\(f)字體下載失敗，先用蘋方顯示；連上網路後重新選一次字體。")
+                    } else {
+                        Text("圓體、襯線會連中文一起換（圓體、宋體），第一次使用時會從 Apple 下載字體。")
+                    }
                 }
                 Section {
                     Button("匯出備份") {
@@ -267,9 +277,9 @@ struct SettingsView: View {
 
     private func row(_ icon: String, _ title: String, _ sub: String) -> some View {
         Label {
-            VStack(alignment: .leading, spacing: 2) { Text(title).font(.headline); Text(sub).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
+            VStack(alignment: .leading, spacing: 2) { Text(title).font(.app(.headline)); Text(sub).font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
         } icon: {
-            LIcon(icon).font(.subheadline.weight(.semibold)).foregroundStyle(Color.onAccent)
+            LIcon(icon).font(.app(.subheadline, .semibold)).foregroundStyle(Color.onAccent)
                 .frame(width: 30, height: 30).background(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous).fill(Color.themeAccent))
         }
         .padding(.vertical, 4)
@@ -322,7 +332,7 @@ struct AITranslationSettings: View {
                     }.disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
                     if saved {
                         Button(testing ? "測試中…" : "測試翻譯 serendipity") { Task { await test() } }.disabled(testing)
-                        if let testResult { Text(testResult).font(.footnote).foregroundStyle(.secondary) }
+                        if let testResult { Text(testResult).font(.app(.footnote)).foregroundStyle(.secondary) }
                         Button("移除 key", role: .destructive) { APIKey.value = ""; key = ""; saved = false; testResult = nil }
                     }
                 } header: { Text("API") } footer: {
@@ -373,8 +383,8 @@ struct AccountView: View {
                     ForEach(lists) { l in
                         HStack {
                             VStack(alignment: .leading) {
-                                Text(l.name).font(.headline)
-                                Text("\(l.word_count) 個字").font(.footnote).foregroundStyle(.secondary)
+                                Text(l.name).font(.app(.headline))
+                                Text("\(l.word_count) 個字").font(.app(.footnote)).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Text(Cloud.pretty(l.code)).font(.body.monospaced()).textSelection(.enabled)
@@ -404,7 +414,7 @@ struct AccountView: View {
                     }.disabled(sending || !email.contains("@") || !email.contains("."))
                     if let sentTo {
                         Text("已寄到 \(sentTo)。在這支 iPhone 上打開信，點「Sign in」就會回到 JuanGo 完成登入。沒收到的話看看垃圾郵件。")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.app(.footnote)).foregroundStyle(.secondary)
                     }
                 } header: { Text("登入") } footer: {
                     Text("不用密碼：輸入 Email，用信裡的連結登入。登入後單字、熟練度、清單和複習紀錄會備份到雲端（API key 不會上傳）。")

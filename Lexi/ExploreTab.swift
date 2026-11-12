@@ -43,7 +43,7 @@ struct ExploreTab: View {
             .scrollPosition(id: $current)
             .scrollIndicators(.hidden)
             if let i = feed.firstIndex(where: { $0.w == current }) {
-                Text("\(i + 1) / \(feed.count)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(.secondary)
+                Text("\(i + 1) / \(feed.count)").font(.app(.caption, .bold).monospacedDigit()).foregroundStyle(.secondary)
             }
             }
             .padding(.top, 6).padding(.bottom, 14)
@@ -82,13 +82,13 @@ struct ExploreTab: View {
             ForEach(Deck.allCases) { d in
                 Button { deck = d } label: {
                     if deck == d { Label(d.rawValue, pulso: "checkmark") } else { Text(d.rawValue) }
-                    Text("\(Dictionary_.all.filter(d.contains).count) 個單字・\(d.subtitle)")
+                    Text("\(Dictionary_.entries(deck: d).count) 個單字・\(d.subtitle)")
                 }
             }
         } label: {
             HStack(spacing: 4) {
-                Text(deck.rawValue).font(.system(.headline).weight(.bold))
-                LIcon("chevron.up.chevron.down").font(.caption.bold()).foregroundStyle(.secondary)
+                Text(deck.rawValue).font(.app(.headline, .bold))
+                LIcon("chevron.up.chevron.down").font(.app(.caption, .bold)).foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
         }
@@ -120,8 +120,8 @@ struct ExploreTab: View {
     private var tipBanner: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(tipStep == 0 ? "往左滑，看下一張" : "點兩下卡片，收進我的單字").font(.subheadline.bold())
-                Text("\(tipStep + 1) / 2・自己試一次就到下一步").font(.caption).opacity(0.7)
+                Text(tipStep == 0 ? "往左滑，看下一張" : "點兩下卡片，收進我的單字").font(.app(.subheadline, .bold))
+                Text("\(tipStep + 1) / 2・自己試一次就到下一步").font(.app(.caption)).opacity(0.7)
             }
             Spacer()
             Button(tipStep == 0 ? "略過" : "完成") { withAnimation { settings.exploreTipsDone = true } }
@@ -147,7 +147,7 @@ struct ExploreTab: View {
     }
 
     private func rebuild() {
-        var pool = Dictionary_.all.filter(deck.contains)
+        var pool = Dictionary_.entries(deck: deck)
         if !levels.isEmpty { pool = pool.filter { levels.contains($0.lv) } }
         if let posFilter { pool = pool.filter { $0.posTags.contains(posFilter) } }
         if deck == .recommended && levels.isEmpty {
@@ -181,33 +181,33 @@ struct ExploreCard: View {
                 tag(levelLabel(entry.lv), filled: true)
                 if !entry.pos.isEmpty { tag(entry.pos, filled: false) }
                 Spacer()
-                if isSaved { Label("已收藏", pulso: "bookmark.fill").font(.caption.weight(.bold)).foregroundStyle(.tint) }
+                if isSaved { Label("已收藏", pulso: "bookmark.fill").font(.app(.caption, .bold)).foregroundStyle(.tint) }
             }
             Spacer(minLength: 0)
-            Text(entry.w).font(.system(size: 44, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(entry.w).font(.app(size: 44, .bold)).minimumScaleFactor(0.5).lineLimit(1)
             HStack(spacing: 8) {
                 SpeakButton(text: entry.w)
                 if settings.exploreShowIPA && !entry.ipa.isEmpty { Text("/\(entry.ipa)/").foregroundStyle(.secondary) }
             }
-            .font(.subheadline)
-            Text(entry.zh.prefix(3).joined(separator: "；")).font(.title2.weight(.bold)).lineLimit(2)
+            .font(.app(.subheadline))
+            Text(entry.zh.prefix(3).joined(separator: "；")).font(.app(.title2, .bold)).lineLimit(2)
             VStack(alignment: .leading, spacing: 6) {
                 if let ex = examples.example(for: entry) {
-                    TappableSentence(sentence: ex.en, highlight: entry.w, font: .body.weight(.medium), onTap: onLookup)
-                    if settings.showTranslation { Text(ex.zh).font(.subheadline).foregroundStyle(.secondary) }
+                    TappableSentence(sentence: ex.en, highlight: entry.w, font: .app(.body, .medium), onTap: onLookup)
+                    if settings.showTranslation { Text(ex.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
                 } else if examples.isGenerating(entry) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("The teacher discussed the issue of recycling with the whole class.")
-                        Text("老師與全班同學討論了回收的問題。").font(.subheadline)
+                        Text("老師與全班同學討論了回收的問題。").font(.app(.subheadline))
                     }
                     .redacted(reason: .placeholder)
                     .phaseAnimator([0.35, 0.8]) { v, p in v.opacity(p) } animation: { _ in .easeInOut(duration: 0.8) }
                 } else if !entry.def.isEmpty {
-                    TappableSentence(sentence: entry.def, highlight: "", font: .subheadline, onTap: onLookup)
+                    TappableSentence(sentence: entry.def, highlight: "", font: .app(.subheadline), onTap: onLookup)
                         .foregroundStyle(.secondary)
                 }
                 if let alt = entry.alt, !alt.isEmpty {
-                    Text("也寫作：\(alt.joined(separator: ", "))").font(.caption).foregroundStyle(.secondary)
+                    Text("也寫作：\(alt.joined(separator: ", "))").font(.app(.caption)).foregroundStyle(.secondary)
                 }
             }
             .padding(12)
@@ -216,7 +216,7 @@ struct ExploreCard: View {
             .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
             Spacer(minLength: 0)
             HStack(spacing: 10) {
-                Button(action: onList) { LIcon("folder.badge.plus").font(.title3) }
+                Button(action: onList) { LIcon("folder.badge.plus").font(.app(.title3)) }
                     .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 52))
                     .frame(width: 64)
                 Button(action: onToggle) {
@@ -228,7 +228,7 @@ struct ExploreCard: View {
         .padding(22)
         .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
         .overlay {
-            LIcon("bookmark.fill").font(.system(size: 80)).foregroundStyle(Color.themeAccent)
+            LIcon("bookmark.fill").font(.app(size: 80)).foregroundStyle(Color.themeAccent)
                 .scaleEffect(pop ? 1.1 : 0.4).opacity(pop ? 0.9 : 0)
         }
         .contentShape(Rectangle())
@@ -242,7 +242,7 @@ struct ExploreCard: View {
     }
 
     private func tag(_ t: String, filled: Bool) -> some View {
-        Text(t).font(.caption.weight(.bold))
+        Text(t).font(.app(.caption, .bold))
             .foregroundStyle(filled ? Color.onAccent : Color.themeAccent)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(filled ? Color.themeAccent : Color.themeAccent.opacity(0.1)))

@@ -155,15 +155,15 @@ struct WordsTab: View {
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(w.term).font(.system(.headline).weight(.bold))
+                Text(w.term).font(.app(.headline, .bold))
                 if AppSettings.shared.listShowMeaning {
-                    Text(w.meaningLine).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    Text(w.meaningLine).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { NavigationLink(value: w) { EmptyView() }.opacity(0).disabled(selecting) }
-            if w.favorite { LIcon("heart.fill").font(.caption).foregroundStyle(Color.themeAccent) }
-            Text(levelNames[max(0, min(5, w.srsLevel))]).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            if w.favorite { LIcon("heart.fill").font(.app(.caption)).foregroundStyle(Color.themeAccent) }
+            Text(levelNames[max(0, min(5, w.srsLevel))]).font(.app(.caption, .semibold)).foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
         .gesture(TapGesture().onEnded { toggleSel(w) }, isEnabled: selecting)
@@ -176,7 +176,7 @@ struct WordsTab: View {
     private var myLists: some View {
         List { Group {
             Section {
-                Button { newList = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.headline) }
+                Button { newList = true } label: { Label("建立新清單", pulso: "plus.circle.fill").font(.app(.headline)) }
             }
             Section {
                 NavigationLink(value: ListRoute.myWords) { listLabel("我的單字", "folder.fill", words.filter(\.inMyWords).count) }
@@ -207,8 +207,8 @@ struct WordsTab: View {
         ForEach(decks) { d in
             NavigationLink(value: ListRoute.deck(d.rawValue)) {
                 VStack(alignment: .leading) {
-                    Text(d.rawValue).font(.headline)
-                    Text("\(Dictionary_.all.filter(d.contains).count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary)
+                    Text(d.rawValue).font(.app(.headline))
+                    Text("\(Dictionary_.entries(deck: d).count) 個單字・\(d.subtitle)").font(.app(.caption)).foregroundStyle(.secondary)
                 }
             }
         }
@@ -256,13 +256,13 @@ struct ListWordsView: View {
                     let saved = words.contains { $0.term == e.w }
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(e.w).font(.headline)
-                            Text("\(e.pos) \(e.zh.joined(separator: "・"))").font(.subheadline).foregroundStyle(.secondary)
+                            Text(e.w).font(.app(.headline))
+                            Text("\(e.pos) \(e.zh.joined(separator: "・"))").font(.app(.subheadline)).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text(levelLabel(e.lv)).font(.caption.bold()).foregroundStyle(.secondary)
+                        Text(levelLabel(e.lv)).font(.app(.caption, .bold)).foregroundStyle(.secondary)
                         Button { if !saved { Library.add(e, in: ctx) } } label: {
-                            LIcon(saved ? "checkmark.circle.fill" : "plus.circle.fill").font(.title2)
+                            LIcon(saved ? "checkmark.circle.fill" : "plus.circle.fill").font(.app(.title2))
                         }.buttonStyle(.plain).foregroundStyle(saved ? Color.green : .themeAccent)
                     }
                     .contentShape(Rectangle())
@@ -273,8 +273,8 @@ struct ListWordsView: View {
                 ForEach(routeWords) { w in
                     NavigationLink(value: w) {
                         VStack(alignment: .leading) {
-                            Text(w.term).font(.headline)
-                            Text(w.meaningLine).font(.subheadline).foregroundStyle(.secondary)
+                            Text(w.term).font(.app(.headline))
+                            Text(w.meaningLine).font(.app(.subheadline)).foregroundStyle(.secondary)
                         }
                     }
                     .swipeActions { Button("移出清單", role: .destructive) { removeFromRoute(w) } }
@@ -328,7 +328,7 @@ struct ListWordsView: View {
     }
     private var entries: [DictEntry] {
         switch route {
-        case .deck(let d): Dictionary_.all.filter((Deck(rawValue: d) ?? .basic).contains)
+        case .deck(let d): Dictionary_.entries(deck: Deck(rawValue: d) ?? .basic)
         case .level(let lv): Dictionary_.entries(level: lv)
         default: []
         }
@@ -375,11 +375,11 @@ struct WordDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 // Dictionary-style header: headword, pronunciation, tags, then numbered meanings.
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(word.term).font(.system(size: 42, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
+                    Text(word.term).font(.app(size: 42, .bold)).minimumScaleFactor(0.5).lineLimit(1)
                     HStack(spacing: 8) {
                         SpeakButton(text: word.term)
                         if !word.ipa.isEmpty { Text("/\(word.ipa)/").foregroundStyle(.secondary) }
-                    }.font(.subheadline)
+                    }.font(.app(.subheadline))
                     HStack(spacing: 6) {
                         if !word.pos.isEmpty { detailTag(word.pos) }
                         detailTag(levelLabel(cefrToExam[word.cefr] ?? word.cefr))
@@ -388,7 +388,7 @@ struct WordDetailView: View {
                     Divider().padding(.vertical, 4)
                     ForEach(Array(word.meanings.enumerated()), id: \.offset) { k, m in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text("\(k + 1)").font(.caption.weight(.bold)).foregroundStyle(.tint).frame(width: 14)
+                            Text("\(k + 1)").font(.app(.caption, .bold)).foregroundStyle(.tint).frame(width: 14)
                             Text(m).font(k == 0 ? .title3.weight(.bold) : .body)
                         }
                     }
@@ -398,22 +398,22 @@ struct WordDetailView: View {
                 if !word.example.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("例句").font(.system(.subheadline).weight(.bold))
+                            Text("例句").font(.app(.subheadline, .bold))
                             Spacer()
                             Button { withAnimation { showTranslation.toggle() } } label: {
-                                Label("翻譯", pulso: showTranslation ? "chevron.up" : "chevron.down").font(.caption.bold())
+                                Label("翻譯", pulso: showTranslation ? "chevron.up" : "chevron.down").font(.app(.caption, .bold))
                             }.foregroundStyle(.secondary)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            TappableSentence(sentence: word.example, highlight: word.term, font: .callout.weight(.semibold)) { lookup = LookupTerm(term: $0) }
-                            if showTranslation { Text(word.exampleZh).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
+                            TappableSentence(sentence: word.example, highlight: word.term, font: .app(.callout, .semibold)) { lookup = LookupTerm(term: $0) }
+                            if showTranslation { Text(word.exampleZh).font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
                         }.card()
                     }
                 }
                 if !synonyms.isEmpty { wordGrid("同義字", synonyms) }
                 if !related.isEmpty { wordGrid("相同程度", related) }
                 if !word.definition.isEmpty {
-                    section("英文解釋") { Text(word.definition).font(.body) }
+                    section("英文解釋") { Text(word.definition).font(.app(.body)) }
                 }
                 section("學習狀態") {
                     VStack(alignment: .leading, spacing: 6) {
@@ -421,7 +421,7 @@ struct WordDetailView: View {
                         LabeledContent("複習次數", value: "\(word.reviewCount)")
                         if let due = word.dueDate { LabeledContent("下次複習", value: due <= .now ? "已到期" : due.formatted(.relative(presentation: .named).locale(.zh))) }
                         if !word.lists.isEmpty { LabeledContent("清單", value: word.lists.map(\.name).joined(separator: "、")) }
-                    }.font(.subheadline)
+                    }.font(.app(.subheadline))
                 }
             }
             .padding(.horizontal, 18).padding(.bottom, 30)
@@ -472,15 +472,15 @@ struct WordDetailView: View {
     /// Related words as a wrap of tappable chips; the + adds one straight to 我的單字.
     private func wordGrid(_ title: String, _ entries: [DictEntry]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(.subheadline).weight(.bold))
+            Text(title).font(.app(.subheadline, .bold))
             FlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(entries) { e in
                     HStack(spacing: 8) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(e.w).font(.subheadline.weight(.bold))
-                            Text(e.zh.first ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            Text(e.w).font(.app(.subheadline, .bold))
+                            Text(e.zh.first ?? "").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        Button { Library.add(e, in: ctx) } label: { LIcon("plus").font(.caption.bold()) }
+                        Button { Library.add(e, in: ctx) } label: { LIcon("plus").font(.app(.caption, .bold)) }
                             .buttonStyle(.plain).foregroundStyle(.tint)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
@@ -494,13 +494,13 @@ struct WordDetailView: View {
 
     private func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(.subheadline).weight(.bold))
+            Text(title).font(.app(.subheadline, .bold))
             content().card()
         }
     }
 
     private func detailTag(_ t: String) -> some View {
-        Text(t).font(.caption.weight(.bold)).foregroundStyle(.tint)
+        Text(t).font(.app(.caption, .bold)).foregroundStyle(.tint)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.1)))
     }

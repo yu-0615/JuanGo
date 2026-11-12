@@ -132,10 +132,19 @@ struct LIcon: View {
     }
 
     var body: some View {
-        let (icon, solid) = Icons.resolve(name)
         let resolved = (font ?? .body).resolve(in: fontContext)
-        PulsoIconView(icon, size: size ?? (resolved.pointSize * 1.2).rounded(),
-                      strokeWidth: Icons.stroke(for: resolved.weight), solid: solid, play: play)
+        let side = size ?? (resolved.pointSize * 1.2).rounded()
+        let stroke = Icons.stroke(for: resolved.weight)
+        if let play {
+            let (icon, solid) = Icons.resolve(name)
+            PulsoIconView(icon, size: side, strokeWidth: stroke, solid: solid, play: play)
+        } else {
+            // A still icon is drawn once into a cached template image: a live Canvas + TimelineView per icon
+            // made every list row and tab redraw on the CPU and dropped frames while scrolling and animating.
+            PulsoImageCache.image(name, size: side, stroke: stroke)
+                .frame(width: side, height: side)
+                .accessibilityHidden(true)
+        }
     }
 }
 
@@ -144,11 +153,11 @@ struct LIcon: View {
 @MainActor enum PulsoImageCache {
     static var images: [String: UIImage] = [:]
 
-    static func image(_ name: String, size: CGFloat) -> Image {
-        let key = "\(name)@\(size)"
+    static func image(_ name: String, size: CGFloat, stroke: CGFloat = 2) -> Image {
+        let key = "\(name)@\(size)/\(stroke)"
         if let ui = images[key] { return Image(uiImage: ui) }
         let (icon, solid) = Icons.resolve(name)
-        let renderer = ImageRenderer(content: PulsoIconView(icon, size: size, color: .black, strokeWidth: 2, solid: solid, animated: false))
+        let renderer = ImageRenderer(content: PulsoIconView(icon, size: size, color: .black, strokeWidth: stroke, solid: solid, animated: false))
         renderer.scale = UITraitCollection.current.displayScale > 0 ? UITraitCollection.current.displayScale : 3
         let ui = (renderer.uiImage ?? UIImage()).withRenderingMode(.alwaysTemplate)
         images[key] = ui
@@ -188,7 +197,7 @@ struct EmptyState: View {
         ContentUnavailableView {
             VStack(spacing: 10) {
                 LIcon(icon, size: 44).foregroundStyle(.secondary)
-                Text(title).font(.title3.bold())
+                Text(title).font(.app(.title3, .bold))
             }
         } description: {
             if let message { Text(message) }

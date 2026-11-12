@@ -17,7 +17,8 @@ struct StudyTab: View {
     /// Switches to the Explore tab when the daily goal needs more words than are saved.
     var onFindWords: () -> Void = {}
 
-    private var stats: Stats { Stats(logs: logs, words: words) }
+    /// the home screen only shows today's count and the streak, which come from the logs alone
+    private var stats: Stats { Stats(logs: logs, words: []) }
     private var studyable: [Word] { words.filter { $0.inMyWords || !$0.lists.isEmpty } }
 
     var body: some View {
@@ -34,7 +35,7 @@ struct StudyTab: View {
                         flow = StudyRequest(title: "自由練習", words: studyable.filter { !$0.isMastered }.shuffled())
                     }
                     .disabled(studyable.isEmpty)
-                    actionRow("學習紀錄", "每天練了哪些字", icon: { LIcon("calendar").font(.title3).foregroundStyle(.tint) }) {
+                    actionRow("學習紀錄", "每天練了哪些字", icon: { LIcon("calendar").font(.app(.title3)).foregroundStyle(.tint) }) {
                         showHistory = true
                     }
                 }
@@ -93,8 +94,8 @@ struct StudyTab: View {
                     .rotationEffect(.degrees(-90))
                     .animation(.spring(duration: 0.8), value: progress)
                 VStack(spacing: 0) {
-                    Text("\(stats.newToday)").font(.system(size: 34, weight: .bold)).contentTransition(.numericText())
-                    Text("/ \(settings.dailyGoal) 新字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text("\(stats.newToday)").font(.app(size: 34, .bold)).contentTransition(.numericText())
+                    Text("/ \(settings.dailyGoal) 新字").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
                 }
             }
             .frame(width: 112, height: 112)
@@ -126,7 +127,7 @@ struct StudyTab: View {
             .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
             .disabled(nothingQueued && newLeft == 0)
             if studyable.isEmpty {
-                Text("先到「新增」或「探索」加入幾個單字吧。").font(.caption).foregroundStyle(.secondary)
+                Text("先到「新增」或「探索」加入幾個單字吧。").font(.app(.caption)).foregroundStyle(.secondary)
             }
         }
         .padding(.bottom, 4)
@@ -134,9 +135,9 @@ struct StudyTab: View {
 
     private func statLine(_ icon: String, _ label: String, _ value: String) -> some View {
         HStack(spacing: 8) {
-            LIcon(icon).font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 20)
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
+            LIcon(icon).font(.app(.subheadline, .semibold)).foregroundStyle(.tint).frame(width: 20)
+            Text(label).font(.app(.subheadline)).foregroundStyle(.secondary)
+            Text(value).font(.app(.subheadline, .semibold)).foregroundStyle(.primary)
         }
     }
 
@@ -147,10 +148,10 @@ struct StudyTab: View {
                 icon().frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(.primary)
-                    Text(sub).font(.caption).foregroundStyle(.secondary)
+                    Text(sub).font(.app(.caption)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                LIcon("chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                LIcon("chevron.right").font(.app(.footnote, .semibold)).foregroundStyle(.tertiary)
             }
         }
     }
@@ -162,7 +163,7 @@ struct StudyTab: View {
                 Text(name).foregroundStyle(.primary).lineLimit(1)
                 Spacer()
                 Text("\(words.count) 個").foregroundStyle(.secondary)
-                LIcon("play.circle.fill").font(.title3).foregroundStyle(words.isEmpty ? Color.secondary.opacity(0.4) : Color.themeAccent)
+                LIcon("play.circle.fill").font(.app(.title3)).foregroundStyle(words.isEmpty ? Color.secondary.opacity(0.4) : Color.themeAccent)
             }
         }
         .disabled(words.isEmpty)
@@ -172,21 +173,21 @@ struct StudyTab: View {
 
     @ViewBuilder private func deckRows(_ decks: [Deck]) -> some View {
         ForEach(decks) { d in
-            let entries = Dictionary_.all.filter(d.contains)
+            let entries = Dictionary_.entries(deck: d)
             Button {
                 let picked = entries.filter { Library.word($0.w, in: ctx) == nil }.shuffled().prefix(settings.dailyGoal)
                 let ws = picked.map { Library.add($0, in: ctx) }
                 flow = StudyRequest(title: d.rawValue, words: ws)
             } label: {
                 HStack(spacing: 14) {
-                    Text(String(d.rawValue.prefix(1))).font(.headline)
+                    Text(String(d.rawValue.prefix(1))).font(.app(.headline))
                         .foregroundStyle(.tint).frame(width: 28)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(d.rawValue).foregroundStyle(.primary)
-                        Text("\(entries.count) 個單字・\(d.subtitle)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text("\(entries.count) 個單字・\(d.subtitle)").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer()
-                    LIcon("chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                    LIcon("chevron.right").font(.app(.footnote, .semibold)).foregroundStyle(.tertiary)
                 }
             }
         }
@@ -400,14 +401,14 @@ struct SessionSetupView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(request.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                    Text("本輪設定").font(.system(.largeTitle).weight(.bold))
+                    Text(request.title).font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
+                    Text("本輪設定").font(.app(.largeTitle, .bold))
                 }
                 Spacer()
-                Button { showInfo = true } label: { LIcon("questionmark.circle").font(.title3) }
+                Button { showInfo = true } label: { LIcon("questionmark.circle").font(.app(.title3)) }
                     .foregroundStyle(.secondary)
                 Button(action: onClose) {
-                    LIcon("xmark").font(.headline).frame(width: 36, height: 36)
+                    LIcon("xmark").font(.app(.headline)).frame(width: 36, height: 36)
                         .glassEffect(.regular.interactive(), in: .circle)
                 }
                 .foregroundStyle(.primary)
@@ -434,9 +435,9 @@ struct SessionSetupView: View {
                         Text("題數").foregroundStyle(.secondary)
                         Spacer()
                         Text(drawLabel).fontWeight(.bold)
-                        LIcon("chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
+                        LIcon("chevron.up.chevron.down").font(.app(.caption)).foregroundStyle(.secondary)
                     }
-                    .font(.subheadline).foregroundStyle(.primary)
+                    .font(.app(.subheadline)).foregroundStyle(.primary)
                     .card(padding: 14)
                 }
                 .menuOrder(.fixed).tint(.primary)
@@ -466,10 +467,10 @@ struct SessionSetupView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 PulsoIconView(.infinity, size: 34, color: .themeAccent, strokeWidth: 2.4, play: true)
-                Text("無盡模式").font(.system(size: 34, weight: .semibold))
+                Text("無盡模式").font(.app(size: 34, .semibold))
             }
             Text("從 \(request.words.count) 個字裡隨機抽考，一輪考完會重新洗牌再抽，隨時按左上角結束。")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.app(.subheadline)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card()
@@ -482,24 +483,24 @@ struct SessionSetupView: View {
         return VStack(spacing: 12) {
             if endless { endlessCard } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(words.count) 個字").font(.system(size: 34, weight: .semibold))
+                Text("\(words.count) 個字").font(.app(size: 34, .semibold))
                 Text("複習 \(review)・新字 \(fresh)・約 \(max(1, words.count / 2)) 分鐘").foregroundStyle(.secondary)
                 Divider().padding(.vertical, 6)
                 ForEach(QType.allCases.filter { breakdown[$0] != nil }) { t in
                     let n = breakdown[t]!.count
                     HStack {
-                        Text(t.rawValue).font(.subheadline.bold()).frame(width: 64, alignment: .leading)
+                        Text(t.rawValue).font(.app(.subheadline, .bold)).frame(width: 64, alignment: .leading)
                         GeometryReader { g in
                             Capsule().fill(Color.themeAccent).frame(width: g.size.width * CGFloat(n) / CGFloat(max(1, words.count)))
                         }.frame(height: 6)
-                        Text("\(n)").font(.subheadline.bold())
+                        Text("\(n)").font(.app(.subheadline, .bold))
                     }
                 }
             }.card()
             }
-            Toggle(isOn: $listening) { Label("包含聽力題", pulso: "headphones").font(.headline) }.card()
+            Toggle(isOn: $listening) { Label("包含聽力題", pulso: "headphones").font(.app(.headline)) }.card()
             Text("自動安排會依熟練階梯出題：初見的字翻卡片，越往上越考中翻英、克漏字和拼字。")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
 
@@ -507,12 +508,12 @@ struct SessionSetupView: View {
         VStack(alignment: .leading, spacing: 10) {
             if endless { endlessCard }
             ForEach(QType.groups, id: \.self) { g in
-                Text(g).font(.caption.bold()).foregroundStyle(.secondary)
+                Text(g).font(.app(.caption, .bold)).foregroundStyle(.secondary)
                 StackGrid(items: QType.allCases.filter { $0.group == g }, columns: 2, spacing: 10) { t in
                         let on = types.contains(t)
                         Button { if on { types.remove(t) } else { types.insert(t) } } label: {
                             HStack {
-                                Text(t.rawValue).font(.headline)
+                                Text(t.rawValue).font(.app(.headline))
                                 Spacer(minLength: 0)
                                 if on { LIcon("checkmark.circle.fill") }
                             }
@@ -545,7 +546,7 @@ struct SessionView: View {
             VStack(spacing: 14) {
                 HStack(spacing: 14) {
                     Button { confirmExit = true } label: {
-                        LIcon("xmark").font(.headline).frame(width: 36, height: 36)
+                        LIcon("xmark").font(.app(.headline)).frame(width: 36, height: 36)
                             .glassEffect(.regular.interactive(), in: .circle)
                     }
                     .foregroundStyle(.primary)
@@ -555,13 +556,13 @@ struct SessionView: View {
                         Button("單字詳情", pulso: "text.book.closed") { detail = engine.current?.word }
                         Button("設定", pulso: "slider.horizontal.3") { showSettings = true }
                     } label: {
-                        LIcon("ellipsis").font(.headline).frame(width: 36, height: 36)
+                        LIcon("ellipsis").font(.app(.headline)).frame(width: 36, height: 36)
                             .glassEffect(.regular.interactive(), in: .circle)
                     }
                     .foregroundStyle(.primary)
                 }
                 HStack(alignment: .firstTextBaseline) {
-                    Text(engine.current?.type.rawValue ?? title).font(.system(.title3).weight(.bold))
+                    Text(engine.current?.type.rawValue ?? title).font(.app(.title3, .bold))
                     Spacer()
                     if let w = engine.current?.word {
                         HStack(spacing: 4) {
@@ -569,7 +570,7 @@ struct SessionView: View {
                                 Circle().fill(i <= w.srsLevel ? Color.themeAccent : Color.secondary.opacity(0.22)).frame(width: 7, height: 7)
                             }
                         }
-                        Text(levelNames[max(0, min(5, w.srsLevel))]).font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                        Text(levelNames[max(0, min(5, w.srsLevel))]).font(.app(.caption, .bold)).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -611,7 +612,7 @@ struct SessionView: View {
         if engine.endless {
             HStack(spacing: 8) {
                 PulsoIconView(.infinity, size: 18, color: .themeAccent, strokeWidth: 2.4, play: engine.answered > 0)
-                Text(engine.progressText).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                Text(engine.progressText).font(.app(.subheadline, .semibold).monospacedDigit()).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
         } else {
@@ -624,7 +625,7 @@ struct SessionView: View {
             .frame(height: 6)
             .frame(maxWidth: .infinity)
             .overlay(alignment: .trailing) {
-                Text(engine.progressText).font(.caption2.weight(.bold).monospacedDigit()).foregroundStyle(.secondary).offset(y: 14)
+                Text(engine.progressText).font(.app(.caption2, .bold).monospacedDigit()).foregroundStyle(.secondary).offset(y: 14)
             }
             .animation(.spring(duration: 0.4), value: engine.done.count)
         }
@@ -656,7 +657,7 @@ struct RulesSheet: View {
         .presentationDetents([.medium, .large])
     }
     private func rule(_ icon: String, _ title: String, _ sub: String) -> some View {
-        Label { VStack(alignment: .leading) { Text(title).font(.headline); Text(sub).font(.caption).foregroundStyle(.secondary) } }
+        Label { VStack(alignment: .leading) { Text(title).font(.app(.headline)); Text(sub).font(.app(.caption)).foregroundStyle(.secondary) } }
             icon: { LIcon(icon).foregroundStyle(.tint) }
     }
 }
@@ -674,8 +675,8 @@ struct GradeButtons: View {
     private func tile(_ t: String, _ icon: String, _ fill: Color, _ g: Grade) -> some View {
         Button { onGrade(g) } label: {
             VStack(spacing: 4) {
-                LIcon(icon).font(.title3.weight(.bold))
-                Text(t).font(.subheadline.weight(.bold))
+                LIcon(icon).font(.app(.title3, .bold))
+                Text(t).font(.app(.subheadline, .bold))
             }
         }
         .buttonStyle(PillButtonStyle(fill: fill, height: 66))
@@ -722,7 +723,7 @@ struct FlashcardQuestion: View {
                     .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
                 Button { Speech.say(word.term) } label: { LIcon("speaker.wave.2.fill") }.foregroundStyle(.tint)
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 6)
             GradeButtons(onGrade: onGrade)
         }
@@ -738,7 +739,7 @@ struct FlashcardQuestion: View {
 
     @ViewBuilder private var swipeHint: some View {
         if abs(drag.width) > 30 {
-            Text(drag.width > 0 ? "會" : "不會").font(.title2.weight(.semibold))
+            Text(drag.width > 0 ? "會" : "不會").font(.app(.title2, .semibold))
                 .padding(.horizontal, 20).padding(.vertical, 8)
                 .background(Capsule().fill(drag.width > 0 ? Color.knowGreen : Color.againPink))
                 .padding(.top, 20)
@@ -756,44 +757,44 @@ struct FlashcardQuestion: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 if !word.pos.isEmpty {
-                    Text(word.pos).font(.caption.weight(.bold)).foregroundStyle(.tint)
+                    Text(word.pos).font(.app(.caption, .bold)).foregroundStyle(.tint)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.12)))
                 }
                 Spacer()
-                Text(back ? "解釋" : "點一下翻面").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                Text(back ? "解釋" : "點一下翻面").font(.app(.caption2, .semibold)).foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)
-            Text(word.term).font(.system(size: back ? 36 : 46, weight: .bold)).minimumScaleFactor(0.5).lineLimit(1)
+            Text(word.term).font(.app(size: back ? 36 : 46, .bold)).minimumScaleFactor(0.5).lineLimit(1)
             Button { Speech.say(word.term) } label: {
                 HStack(spacing: 6) {
                     LIcon("speaker.wave.2.fill").foregroundStyle(.tint)
                     if !word.ipa.isEmpty { Text("/\(word.ipa)/").foregroundStyle(.secondary) }
-                }.font(.subheadline)
+                }.font(.app(.subheadline))
             }
             .buttonStyle(.plain)
             if back {
                 Divider().padding(.vertical, 4)
-                Text(word.primaryMeaning).font(.system(size: 28, weight: .bold))
+                Text(word.primaryMeaning).font(.app(size: 28, .bold))
                 if word.meanings.count > 1 {
-                    Text("也有：" + word.meanings.dropFirst().prefix(3).joined(separator: "、")).font(.subheadline).foregroundStyle(.secondary)
+                    Text("也有：" + word.meanings.dropFirst().prefix(3).joined(separator: "、")).font(.app(.subheadline)).foregroundStyle(.secondary)
                 }
             }
             if !word.example.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    TappableSentence(sentence: word.example, highlight: word.term, font: .body.weight(.medium)) { lookup = LookupTerm(term: $0) }
-                    if back && settings.showTranslation { Text(word.exampleZh).font(.subheadline).foregroundStyle(.secondary) }
+                    TappableSentence(sentence: word.example, highlight: word.term, font: .app(.body, .medium)) { lookup = LookupTerm(term: $0) }
+                    if back && settings.showTranslation { Text(word.exampleZh).font(.app(.subheadline)).foregroundStyle(.secondary) }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
                 .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
             } else if back && !word.definition.isEmpty {
-                Text(word.definition).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+                Text(word.definition).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(3)
             }
             Spacer(minLength: 0)
             if back {
-                Button { onDetail() } label: { Label("完整單字頁", pulso: "arrow.up.right") }.font(.subheadline.bold())
+                Button { onDetail() } label: { Label("完整單字頁", pulso: "arrow.up.right") }.font(.app(.subheadline, .bold))
             }
         }
         .padding(22)
@@ -827,11 +828,11 @@ struct ChoiceQuestion: View {
             ForEach(Array(options.enumerated()), id: \.element) { k, o in
                 Button { choose(o) } label: {
                     HStack(spacing: 14) {
-                        Text(String(UnicodeScalar(65 + k)!)).font(.subheadline.weight(.bold)).monospaced()
+                        Text(String(UnicodeScalar(65 + k)!)).font(.app(.subheadline, .bold)).monospaced()
                             .foregroundStyle(picked == nil ? Color.themeAccent : .primary)
                             .frame(width: 30, height: 30)
                             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
-                        Text(o).font(.headline).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
+                        Text(o).font(.app(.headline)).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
                         Spacer()
                         if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
                         else if picked == o { LIcon("xmark.circle.fill").foregroundStyle(Color.themeAccent) }
@@ -857,7 +858,7 @@ struct ChoiceQuestion: View {
                         .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
                 }
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
             .frame(minHeight: 46)
         }
         .padding(.top, 12).padding(.bottom, 8)
@@ -871,24 +872,24 @@ struct ChoiceQuestion: View {
     @ViewBuilder private var prompt: some View {
         switch type {
         case .enToZh:
-            Text(word.term).font(.system(size: 44, weight: .bold)).lineLimit(1).minimumScaleFactor(0.5)
+            Text(word.term).font(.app(size: 44, .bold)).lineLimit(1).minimumScaleFactor(0.5)
             HStack(spacing: 10) {
-                if !word.ipa.isEmpty { Text("[\(word.ipa)]").font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
-                SpeakButton(text: word.term).font(.footnote)
+                if !word.ipa.isEmpty { Text("[\(word.ipa)]").font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
+                SpeakButton(text: word.term).font(.app(.footnote))
             }
         case .zhToEn:
-            Text(word.meaningLine).font(.system(size: 32, weight: .bold)).multilineTextAlignment(.center)
-            if !word.pos.isEmpty { Text(word.pos).font(.footnote.weight(.semibold)).foregroundStyle(.secondary) }
+            Text(word.meaningLine).font(.app(size: 32, .bold)).multilineTextAlignment(.center)
+            if !word.pos.isEmpty { Text(word.pos).font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
         case .cloze:
-            Text("選出填入空格的字").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            TappableSentence(sentence: clozeSentence, font: .system(.title3).weight(.semibold)) { lookup = LookupTerm(term: $0) }
+            Text("選出填入空格的字").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
+            TappableSentence(sentence: clozeSentence, font: .app(.title3, .semibold)) { lookup = LookupTerm(term: $0) }
                 .frame(maxWidth: .infinity, alignment: .leading)
         default:
             Button { Speech.say(word.term) } label: {
-                LIcon("speaker.wave.3.fill").font(.system(size: 44)).frame(width: 110, height: 110)
+                LIcon("speaker.wave.3.fill").font(.app(size: 44)).frame(width: 110, height: 110)
                     .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             }.buttonStyle(.plain).foregroundStyle(.tint)
-            Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.caption).foregroundStyle(.secondary)
+            Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
 
@@ -914,8 +915,12 @@ struct ChoiceQuestion: View {
     }
 
     private func makeOptions() -> [String] {
-        let pool: [(term: String, zh: String, pos: String)] =
-            Dictionary_.all.map { ($0.w, $0.zh.first ?? "", $0.pos) } + library.map { ($0.term, $0.primaryMeaning, $0.pos) }
+        // Distractors come from same-part-of-speech dictionary words plus the user's own; a small random sample
+        // is enough (mapping all 10k dictionary entries on every question made the card transition stutter).
+        let own: [(term: String, zh: String, pos: String)] = library.map { ($0.term, $0.primaryMeaning, $0.pos) }
+        let dictSame = (Dictionary_.byPos[word.pos] ?? []).shuffled().prefix(40).map { ($0.w, $0.zh.first ?? "", $0.pos) }
+        let dictAny = (0..<40).compactMap { _ in Dictionary_.all.randomElement() }.map { ($0.w, $0.zh.first ?? "", $0.pos) }
+        let pool: [(term: String, zh: String, pos: String)] = own + dictSame + dictAny
         let others = pool.filter { $0.term != word.term && !$0.zh.isEmpty && $0.zh != word.primaryMeaning }
         let samePos = others.filter { $0.pos == word.pos }.shuffled()
         var picks: [String] = []
@@ -946,12 +951,12 @@ struct SpellingQuestion: View {
             VStack(spacing: 10) {
                 if listen {
                     Button { Speech.say(word.term) } label: {
-                        LIcon("speaker.wave.3.fill").font(.system(size: 40)).frame(width: 100, height: 100)
+                        LIcon("speaker.wave.3.fill").font(.app(size: 40)).frame(width: 100, height: 100)
                             .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
                     }.buttonStyle(.plain).foregroundStyle(.tint)
                 } else {
-                    Text(word.meaningLine).font(.system(size: 28, weight: .bold)).multilineTextAlignment(.center)
-                    if !word.pos.isEmpty { Text(word.pos).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary) }
+                    Text(word.meaningLine).font(.app(size: 28, .bold)).multilineTextAlignment(.center)
+                    if !word.pos.isEmpty { Text(word.pos).font(.app(.subheadline, .semibold)).foregroundStyle(.secondary) }
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 150)
@@ -968,7 +973,7 @@ struct SpellingQuestion: View {
                 .disabled(checked != nil)
             if let checked {
                 Label(checked ? "拼對了！" : "答案是 \(word.term)", pulso: checked ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.headline).foregroundStyle(checked ? Color.green : Color.themeAccent)
+                    .font(.app(.headline)).foregroundStyle(checked ? Color.green : Color.themeAccent)
             } else {
                 HStack(spacing: 12) {
                     Button("想不起來", pulso: "questionmark") { gaveUp = true; checked = false; Speech.say(word.term) }
@@ -992,7 +997,7 @@ struct SpellingQuestion: View {
                         .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
                 }
             }
-            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
             .frame(minHeight: 46)
         }
         .padding(.top, 12).padding(.bottom, 8)
@@ -1042,16 +1047,16 @@ struct StreakView: View {
                 .buttonStyle(.glass).buttonBorderShape(.circle) }
             Spacer()
             ZStack {
-                LIcon("drop.fill").font(.system(size: 220)).foregroundStyle(Color(white: 0.72))
-                LIcon("flame.fill").font(.system(size: 92))
+                LIcon("drop.fill").font(.app(size: 220)).foregroundStyle(Color(white: 0.72))
+                LIcon("flame.fill").font(.app(size: 92))
                     .foregroundStyle(Color.orange)
                     .offset(y: 30)
             }
             .scaleEffect(appear ? 1 : 0.5)
-            Text("\(streak)").font(.system(size: 80, weight: .semibold)).contentTransition(.numericText())
-            Text("天連續學習").font(.title3.bold())
+            Text("\(streak)").font(.app(size: 80, .semibold)).contentTransition(.numericText())
+            Text("天連續學習").font(.app(.title3, .bold))
             weekDots
-            Text(streak >= next ? "已解鎖所有連續勳章" : "再 \(next - streak) 天解鎖下一枚連續勳章").font(.subheadline).opacity(0.7)
+            Text(streak >= next ? "已解鎖所有連續勳章" : "再 \(next - streak) 天解鎖下一枚連續勳章").font(.app(.subheadline)).opacity(0.7)
             Spacer()
             Button("繼續", action: onContinue)
                 .buttonStyle(PillButtonStyle(fill: .white, foreground: .black)).frame(width: 160)
@@ -1071,11 +1076,11 @@ struct StreakView: View {
             ForEach(days, id: \.self) { d in
                 VStack(spacing: 6) {
                     if stats.activeDays.contains(d) {
-                        LIcon("flame.fill").font(.title2).foregroundStyle(.orange).frame(width: 30, height: 30)
+                        LIcon("flame.fill").font(.app(.title2)).foregroundStyle(.orange).frame(width: 30, height: 30)
                     } else {
                         Circle().fill(.white.opacity(0.12)).frame(width: 30, height: 30)
                     }
-                    Text(d.formatted(fmt)).font(.caption2.bold()).opacity(0.6)
+                    Text(d.formatted(fmt)).font(.app(.caption2, .bold)).opacity(0.6)
                 }
             }
         }
@@ -1095,17 +1100,17 @@ struct SummaryView: View {
         let count = { (g: Grade) in results.filter { $0.grade == g }.count }
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("這一輪完成了").font(.system(.largeTitle).weight(.bold)).padding(.top, 30)
+                Text("這一輪完成了").font(.app(.largeTitle, .bold)).padding(.top, 30)
                 Text("共 \(roundCount) 個字・今天新學 \(stats.newToday) 個・連續 \(stats.streak) 天")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
                 HStack(spacing: 22) {
                     ScoreRing(good: count(.good), unsure: count(.unsure), again: count(.again)).frame(width: 140, height: 140)
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach([Grade.good, .unsure, .again], id: \.self) { g in
                             HStack(spacing: 8) {
                                 RoundedRectangle(cornerRadius: 3).fill(g.ring).frame(width: 12, height: 12)
-                                Text(g.label).font(.subheadline).foregroundStyle(.secondary)
-                                Text("\(count(g))").font(.subheadline.weight(.bold)).monospacedDigit()
+                                Text(g.label).font(.app(.subheadline)).foregroundStyle(.secondary)
+                                Text("\(count(g))").font(.app(.subheadline, .bold)).monospacedDigit()
                             }
                         }
                     }
@@ -1113,8 +1118,8 @@ struct SummaryView: View {
                 .card(padding: 20)
                 if !settings.reminderAsked && !settings.reminderOn {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("每天提醒你回來練習？", pulso: "bell.badge.fill").font(.headline)
-                        Text("每天 \(settings.reminderText) 通知你，複習才不會中斷。").font(.subheadline).foregroundStyle(.secondary)
+                        Label("每天提醒你回來練習？", pulso: "bell.badge.fill").font(.app(.headline))
+                        Text("每天 \(settings.reminderText) 通知你，複習才不會中斷。").font(.app(.subheadline)).foregroundStyle(.secondary)
                         HStack {
                             Button("先不要") { settings.reminderAsked = true }.buttonStyle(PillButtonStyle(height: 44))
                             Button("開啟提醒") { settings.reminderAsked = true; settings.reminderOn = true }
@@ -1122,7 +1127,7 @@ struct SummaryView: View {
                         }
                     }.card()
                 }
-                Text("成就").font(.system(.title3).weight(.bold))
+                Text("成就").font(.app(.title3, .bold))
                 HStack(alignment: .top) {
                     ForEach(BadgeKind.all) { k in BadgeMedal(kind: k, value: BadgeKind.value(k.id, stats: stats), size: 52).frame(maxWidth: .infinity) }
                 }
@@ -1147,22 +1152,22 @@ extension SummaryView {
     fileprivate var resultsCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("這輪的字").font(.system(.headline).weight(.bold))
+                Text("這輪的字").font(.app(.headline, .bold))
                 Spacer()
                 ForEach([Grade.good, .unsure, .again], id: \.self) { g in
                     let n = results.filter { $0.grade == g }.count
-                    if n > 0 { Text("\(g.label) \(n)").font(.caption.bold()).padding(.horizontal, 8).padding(.vertical, 4)
+                    if n > 0 { Text("\(g.label) \(n)").font(.app(.caption, .bold)).padding(.horizontal, 8).padding(.vertical, 4)
                         .background(Capsule().fill(g.tint)) }
                 }
             }
             ForEach(results) { r in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(r.word.term).font(.headline)
-                        Text(r.word.primaryMeaning).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                        Text(r.word.term).font(.app(.headline))
+                        Text(r.word.primaryMeaning).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                     }
                     Spacer()
-                    Text(levelNames[max(0, min(5, r.word.srsLevel))]).font(.caption.bold()).foregroundStyle(.tint)
+                    Text(levelNames[max(0, min(5, r.word.srsLevel))]).font(.app(.caption, .bold)).foregroundStyle(.tint)
                     RoundedRectangle(cornerRadius: 3).fill(r.grade.ring).frame(width: 12, height: 12)
                 }
                 if r.id != results.last?.id { Divider() }
@@ -1197,12 +1202,12 @@ struct HistoryView: View {
                     Section(day.formatted(.dateTime.month().day().weekday().locale(.zh))) {
                         ForEach(groups[day]!) { l in
                             HStack {
-                                Text(l.term).font(.headline)
-                                if l.wasNew { Text("新字").font(.caption2.bold()).foregroundStyle(.tint) }
+                                Text(l.term).font(.app(.headline))
+                                if l.wasNew { Text("新字").font(.app(.caption2, .bold)).foregroundStyle(.tint) }
                                 Spacer()
-                                Text(["不會", "不確定", "會"][l.result]).font(.subheadline)
+                                Text(["不會", "不確定", "會"][l.result]).font(.app(.subheadline))
                                     .foregroundStyle([Color.red, .orange, .green][l.result])
-                                Text(l.date.formatted(.dateTime.hour().minute().locale(.zh))).font(.caption).foregroundStyle(.secondary)
+                                Text(l.date.formatted(.dateTime.hour().minute().locale(.zh))).font(.app(.caption)).foregroundStyle(.secondary)
                             }
                         }
                     }
