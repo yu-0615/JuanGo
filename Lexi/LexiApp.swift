@@ -85,16 +85,20 @@ struct MainTabs: View {
         }
     }
 
+    private func tabIcon(_ title: String, _ symbol: String) -> some View {
+        Image(systemName: symbol).accessibilityLabel(title)
+    }
+
     var body: some View {
         TabView(selection: $tab) {
-            // Lexi opens on 學習 (home) and labels every tab.
-            Tab(value: AppTab.study) { StudyTab(onFindWords: { tab = .explore }) } label: { Label("今天", pulso: "sun.horizon.fill", size: 24) }
-            Tab(value: AppTab.explore) { ExploreTab() } label: { Label("探索", pulso: "sparkles.rectangle.stack.fill", size: 24) }
-            Tab(value: AppTab.importing) { ImportTab() } label: { Label("新增", pulso: "plus.circle.fill", size: 24) }
-            Tab(value: AppTab.words) { WordsTab() } label: { Label("字庫", pulso: "character.book.closed.fill", size: 24) }
-            Tab(value: AppTab.profile) { ProfileTab() } label: { Label("我的", pulso: "person.crop.circle.fill", size: 24) }
+            // icons only, no titles under them; the name is still read out by VoiceOver
+            Tab(value: AppTab.study) { StudyTab(onFindWords: { tab = .explore }) } label: { tabIcon("主頁", "house.fill") }
+            Tab(value: AppTab.explore) { ExploreTab() } label: { tabIcon("探索", "sparkles.rectangle.stack.fill") }
+            Tab(value: AppTab.importing) { ImportTab() } label: { tabIcon("新增", "plus.circle.fill") }
+            Tab(value: AppTab.words) { WordsTab() } label: { tabIcon("字庫", "character.book.closed.fill") }
+            Tab(value: AppTab.profile) { ProfileTab() } label: { tabIcon("我的", "person.crop.circle.fill") }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)   // iOS 26: the tab bar shrinks while reading, comes back on scroll up
+        .tabBarMinimizeBehavior(.never)   // the tab bar always stays full size
         .task {
             migrateLevels()
             ExampleStore.shared.container = ctx.container

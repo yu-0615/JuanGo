@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import PulsoIcon
 
 // MARK: - Dashboard
 
@@ -31,7 +30,7 @@ struct StudyTab: View {
                     Text(Date.now.formatted(.dateTime.month().day().weekday(.wide).locale(.zh)))
                 }
                 Section {
-                    actionRow("自由練習", "沒學會的字隨機考", icon: { PulsoIconView(.infinity, size: 22, color: .themeAccent, strokeWidth: 2.4) }) {
+                    actionRow("自由練習", "沒學會的字隨機考", icon: { LIcon("infinity", size: 22).fontWeight(.semibold).foregroundStyle(Color.themeAccent) }) {
                         flow = StudyRequest(title: "自由練習", words: studyable.filter { !$0.isMastered }.shuffled())
                     }
                     .disabled(studyable.isEmpty)
@@ -59,7 +58,7 @@ struct StudyTab: View {
                 }
             }.listRowBackground(Color.cardFill) }
             .listStyle(.insetGrouped)
-            .navigationTitle("今天")
+            .navigationTitle("主頁")
             .themedBackground()
             .toolbar {
                 ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } }
@@ -431,7 +430,7 @@ struct SessionSetupView: View {
                     .pickerStyle(.inline)
                 } label: {
                     HStack(spacing: 10) {
-                        PulsoIconView(endless ? .infinity : .dices, size: 20, color: .themeAccent, strokeWidth: 2.2, play: limit != 0)
+                        LIcon(endless ? "infinity" : "dice.fill", size: 20, play: limit != 0).fontWeight(.semibold).foregroundStyle(Color.themeAccent)
                         Text("題數").foregroundStyle(.secondary)
                         Spacer()
                         Text(drawLabel).fontWeight(.bold)
@@ -466,7 +465,7 @@ struct SessionSetupView: View {
     private var endlessCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                PulsoIconView(.infinity, size: 34, color: .themeAccent, strokeWidth: 2.4, play: true)
+                LIcon("infinity", size: 34, play: true).fontWeight(.semibold).foregroundStyle(Color.themeAccent)
                 Text("無盡模式").font(.app(size: 34, .semibold))
             }
             Text("從 \(request.words.count) 個字裡隨機抽考，一輪考完會重新洗牌再抽，隨時按左上角結束。")
@@ -611,7 +610,7 @@ struct SessionView: View {
     @ViewBuilder private var progressTrack: some View {
         if engine.endless {
             HStack(spacing: 8) {
-                PulsoIconView(.infinity, size: 18, color: .themeAccent, strokeWidth: 2.4, play: engine.answered > 0)
+                LIcon("infinity", size: 18, play: engine.answered > 0).fontWeight(.semibold).foregroundStyle(Color.themeAccent)
                 Text(engine.progressText).font(.app(.subheadline, .semibold).monospacedDigit()).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
