@@ -69,7 +69,7 @@ struct TappableSentence: View {
             if i > 0 { out += AttributedString(" ") }
             let isKey = !highlight.isEmpty && t.word.lowercased().hasPrefix(highlight.lowercased())
             var run = AttributedString(t.text)
-            if !t.word.isEmpty { run.link = URL(string: "lexi://word/\(i)") }
+            if !t.word.isEmpty { run.link = URL(string: "juango-word://word/\(i)") }
             run[AttributeScopes.SwiftUIAttributes.ForegroundColorAttribute.self] = .themeAccent
             run[AttributeScopes.SwiftUIAttributes.UnderlineStyleAttribute.self] =
                 Text.LineStyle(pattern: isKey ? .solid : .dot, color: .themeAccent.opacity(isKey ? 0.9 : 0.35))
@@ -374,7 +374,7 @@ struct EditWordSheet: View {
 
 // MARK: - Mastery ladder
 
-/// Level names used across Lexi (0 = not studied yet).
+/// Level names used across JuanGo (0 = not studied yet).
 let levelNames = ["未學", "初見", "認得", "熟悉", "穩固", "精通"]
 
 /// Six steps from 未學 to 精通; each column's height shows how many words sit on that step.
@@ -436,7 +436,7 @@ struct Hexagon: Shape {
     }
 }
 
-/// Lexi's achievement: a flat hexagon in the flame colour with tier pips underneath.
+/// JuanGo's achievement: a flat hexagon in the flame colour with tier pips underneath.
 struct BadgeMedal: View {
     let kind: BadgeKind
     let value: Int

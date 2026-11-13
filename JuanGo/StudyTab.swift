@@ -65,8 +65,8 @@ struct StudyTab: View {
             }
             .fullScreenCover(item: $flow) { StudyFlow(request: $0) }
             #if DEBUG
-            .task {   // simulator testing: SIMCTL_CHILD_LEXI_STUDY=setup | q:英翻中 | summary | streak
-                if ProcessInfo.processInfo.environment["LEXI_STUDY"] != nil, flow == nil {
+            .task {   // simulator testing: SIMCTL_CHILD_JUANGO_STUDY=setup | q:英翻中 | summary | streak
+                if ProcessInfo.processInfo.environment["JUANGO_STUDY"] != nil, flow == nil {
                     flow = StudyRequest(title: "我的單字", words: words.filter(\.inMyWords).shuffled())
                 }
             }
@@ -361,7 +361,7 @@ struct StudyFlow: View {
         .animation(.easeInOut, value: phase)
         #if DEBUG
         .task {
-            guard let m = ProcessInfo.processInfo.environment["LEXI_STUDY"] else { return }
+            guard let m = ProcessInfo.processInfo.environment["JUANGO_STUDY"] else { return }
             if m.hasPrefix("q:") {
                 engine = SessionEngine(words: request.words, types: QType(rawValue: String(m.dropFirst(2))).map { [$0] }, listening: false)
                 phase = .running
@@ -541,7 +541,7 @@ struct SessionView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            // Lexi: ✕, a segmented progress track and a ··· menu; the question type and level pips underneath.
+            // JuanGo: ✕, a segmented progress track and a ··· menu; the question type and level pips underneath.
             VStack(spacing: 14) {
                 HStack(spacing: 14) {
                     Button { confirmExit = true } label: {
@@ -730,7 +730,7 @@ struct FlashcardQuestion: View {
         .onAppear {
             if !settings.muted { Speech.say(word.term) }
             #if DEBUG
-            if ProcessInfo.processInfo.environment["LEXI_FLIP"] != nil { flipped = true }   // simulator: show the back
+            if ProcessInfo.processInfo.environment["JUANGO_FLIP"] != nil { flipped = true }   // simulator: show the back
             #endif
         }
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }

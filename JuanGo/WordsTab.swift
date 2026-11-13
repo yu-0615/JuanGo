@@ -66,8 +66,8 @@ struct WordsTab: View {
             }
             .navigationDestination(for: Word.self) { WordDetailView(word: $0) }
             .navigationDestination(item: $debugWord) { WordDetailView(word: $0) }
-            .task {   // simulator testing: SIMCTL_CHILD_LEXI_WORD=reduce opens that word's page
-                if let t = ProcessInfo.processInfo.environment["LEXI_WORD"] { debugWord = words.first { $0.term == t } }
+            .task {   // simulator testing: SIMCTL_CHILD_JUANGO_WORD=reduce opens that word's page
+                if let t = ProcessInfo.processInfo.environment["JUANGO_WORD"] { debugWord = words.first { $0.term == t } }
             }
             .navigationDestination(for: ListRoute.self) { ListWordsView(route: $0) }
             .alert("新增單字", isPresented: $showAdd) {

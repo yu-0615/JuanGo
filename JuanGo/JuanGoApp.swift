@@ -2,12 +2,12 @@ import SwiftUI
 import SwiftData
 
 @main
-struct LexiApp: App {
+struct JuanGoApp: App {
     @State private var settings = AppSettings.shared
 
     init() {
         #if DEBUG
-        if ProcessInfo.processInfo.environment["LEXI_BACKUP_SELFTEST"] != nil { Backup.selfTest() }
+        if ProcessInfo.processInfo.environment["JUANGO_BACKUP_SELFTEST"] != nil { Backup.selfTest() }
         #endif
     }
 
@@ -32,10 +32,10 @@ struct RootView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(\.scenePhase) private var phase
     private var cloud: Cloud { .shared }
-    /// Debug hook: `SIMCTL_CHILD_LEXI_ONBOARD=1` shows the onboarding again without resetting settings.
+    /// Debug hook: `SIMCTL_CHILD_JUANGO_ONBOARD=1` shows the onboarding again without resetting settings.
     static var forceOnboarding: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.environment["LEXI_ONBOARD"] != nil
+        ProcessInfo.processInfo.environment["JUANGO_ONBOARD"] != nil
         #else
         false
         #endif
@@ -73,9 +73,9 @@ struct MainTabs: View {
     @Environment(AppSettings.self) private var settings
     @State private var tab: AppTab = MainTabs.debugTab ?? .study
 
-    /// Debug hook: `SIMCTL_CHILD_LEXI_TAB=study xcrun simctl launch …` opens that tab.
+    /// Debug hook: `SIMCTL_CHILD_JUANGO_TAB=study xcrun simctl launch …` opens that tab.
     static var debugTab: AppTab? {
-        switch ProcessInfo.processInfo.environment["LEXI_TAB"] {
+        switch ProcessInfo.processInfo.environment["JUANGO_TAB"] {
         case "explore": .explore
         case "study": .study
         case "words": .words

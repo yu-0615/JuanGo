@@ -31,8 +31,8 @@ struct OnboardingView: View {
         }
         .animation(.spring(duration: 0.45), value: page)
         #if DEBUG
-        // Debug hook: `SIMCTL_CHILD_LEXI_ONBOARD=3` opens onboarding on that page.
-        .task { if let p = Int(ProcessInfo.processInfo.environment["LEXI_ONBOARD"] ?? ""), (0...4).contains(p) { page = p } }
+        // Debug hook: `SIMCTL_CHILD_JUANGO_ONBOARD=3` opens onboarding on that page.
+        .task { if let p = Int(ProcessInfo.processInfo.environment["JUANGO_ONBOARD"] ?? ""), (0...4).contains(p) { page = p } }
         #endif
         .alert("目前只支援繁體中文解釋", isPresented: $unsupportedLanguage) { Button("好") {} } message: {
             Text("其他語言的解釋會在之後的版本加入。")

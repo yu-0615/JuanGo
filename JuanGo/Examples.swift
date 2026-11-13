@@ -5,7 +5,7 @@ import FoundationModels
 #endif
 
 /// Example sentences for words whose dictionary entry has none (about 98% of the 大考 list).
-/// Every 探索 card shows an example + translation, so Lexi writes one with the on-device
+/// Every 探索 card shows an example + translation, so JuanGo writes one with the on-device
 /// model the first time a word needs it and keeps it in Application Support/examples.json.
 @MainActor @Observable
 final class ExampleStore {

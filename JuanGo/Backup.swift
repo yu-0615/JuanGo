@@ -311,7 +311,7 @@ private struct BackupImportConfirm: ViewModifier {
 
 #if DEBUG
 extension Backup {
-    /// `SIMCTL_CHILD_LEXI_BACKUP_SELFTEST=1`: round-trips a backup and a shared list through files,
+    /// `SIMCTL_CHILD_JUANGO_BACKUP_SELFTEST=1`: round-trips a backup and a shared list through files,
     /// using in-memory stores only (the app's own data is not touched), prints the result and exits.
     static func selfTest() {
         func store() -> ModelContext {

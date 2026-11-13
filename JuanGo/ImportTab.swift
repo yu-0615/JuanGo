@@ -90,8 +90,8 @@ struct ImportTab: View {
                     }
                 }
             } message: { Text("朋友分享清單時拿到的 8 碼代碼，不用登入也能加入。") }
-            .task {   // simulator testing: SIMCTL_CHILD_LEXI_LOOKUP=word opens the 確認單字 sheet
-                if let t = ProcessInfo.processInfo.environment["LEXI_LOOKUP"] { lookup = LookupTerm(term: t) }
+            .task {   // simulator testing: SIMCTL_CHILD_JUANGO_LOOKUP=word opens the 確認單字 sheet
+                if let t = ProcessInfo.processInfo.environment["JUANGO_LOOKUP"] { lookup = LookupTerm(term: t) }
             }
             .sheet(item: $candidates) { c in OCRPickerView(candidates: c, destination: destination) { n in
                 withAnimation { toast = "已加入 \(n) 個單字" }
@@ -104,8 +104,8 @@ struct ImportTab: View {
             }
             .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
             #if DEBUG
-            .task {   // simulator testing: SIMCTL_CHILD_LEXI_SCAN_IMAGE=/path/to/page.jpg
-                if let p = ProcessInfo.processInfo.environment["LEXI_SCAN_IMAGE"], let img = UIImage(contentsOfFile: p) { await recognize(img) }
+            .task {   // simulator testing: SIMCTL_CHILD_JUANGO_SCAN_IMAGE=/path/to/page.jpg
+                if let p = ProcessInfo.processInfo.environment["JUANGO_SCAN_IMAGE"], let img = UIImage(contentsOfFile: p) { await recognize(img) }
             }
             #endif
             .onChange(of: photoItem) { _, item in

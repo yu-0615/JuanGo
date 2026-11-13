@@ -411,7 +411,7 @@ struct AppTheme: Identifiable, Hashable {
         })
     }
 
-    /// Lexi's own palette, built around the phoenix-red logo.
+    /// JuanGo's own palette, built around the phoenix-red logo.
     static let all: [AppTheme] = [
         .init(id: "phoenix", name: "鳳凰紅", accentHex: 0xA3162E, bgHex: 0xF8F2EA),
         .init(id: "amber", name: "琥珀", accentHex: 0xB0661A, bgHex: 0xF9F1E3),
@@ -466,7 +466,7 @@ extension View {
     func card(padding: CGFloat = 18, radius: CGFloat = Radius.lg) -> some View { modifier(CardBackground(padding: padding, radius: radius)) }
 }
 
-/// Lexi's buttons are native iOS 26 buttons, not hand-drawn shapes (DESIGN.md: the pill is the action signal).
+/// JuanGo's buttons are native iOS 26 buttons, not hand-drawn shapes (DESIGN.md: the pill is the action signal).
 /// - `glass: true` or a `fill`: Liquid Glass prominent button tinted with that colour (the main action, the answer buttons).
 /// - otherwise: a plain Liquid Glass button for secondary actions.
 /// Buttons up to 56 pt tall are pills; taller ones are 18 pt tiles (`Radius.lg`).

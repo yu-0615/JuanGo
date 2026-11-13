@@ -285,7 +285,7 @@ This file comes from `npx getdesign@latest add apple` (Apple's web design langua
 - **Buttons are native**: `PillButtonStyle` wraps `.glassProminent` / `.glass` with `.buttonBorderShape`, `.buttonSizing(.flexible)` and `.controlSize(.large)`. Selectable tiles use `ChoiceTileStyle`. Toolbars use `Button(role: .confirm/.cancel)`.
 - **Type**: the system font (SF Pro). Headlines are semibold (600), never heavy or black. Navigation titles are native.
 - **Layout**: VStack/HStack (`StackGrid` for grids), with spacing on the 8 pt grid. Touch targets are at least 44 pt.
-- **Icons**: PulsoIcon via `LIcon` / `Image.pulso` (see Icons.swift).
+- **Icons**: SF Symbols via `LIcon` / `Label(_:systemImage:)` (see Icons.swift).
 
 ## Overview
 

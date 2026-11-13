@@ -19,7 +19,7 @@ struct ExploreTab: View {
     var body: some View {
         @Bindable var settings = settings
         NavigationStack {
-            // Lexi deals the words as a horizontal deck: swipe sideways, with the neighbours peeking in.
+            // JuanGo deals the words as a horizontal deck: swipe sideways, with the neighbours peeking in.
             VStack(spacing: 12) {
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {

@@ -6,18 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		4B0000000000000000000012 /* PulsoIcon in Frameworks */ = {isa = PBXBuildFile; productRef = 4B0000000000000000000011 /* PulsoIcon */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
-		4B0000000000000000000001 /* Lexi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lexi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4B0000000000000000000001 /* JuanGo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JuanGo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4B0000000000000000000002 /* Lexi */ = {
+		4B0000000000000000000002 /* JuanGo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Lexi;
+			path = JuanGo;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -27,7 +23,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B0000000000000000000012 /* PulsoIcon in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -37,7 +32,7 @@
 		4B0000000000000000000003 = {
 			isa = PBXGroup;
 			children = (
-				4B0000000000000000000002 /* Lexi */,
+				4B0000000000000000000002 /* JuanGo */,
 				4B0000000000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -45,7 +40,7 @@
 		4B0000000000000000000004 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				4B0000000000000000000001 /* Lexi.app */,
+				4B0000000000000000000001 /* JuanGo.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		4B0000000000000000000008 /* Lexi */ = {
+		4B0000000000000000000008 /* JuanGo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4B000000000000000000000B /* Build configuration list for PBXNativeTarget "Lexi" */;
+			buildConfigurationList = 4B000000000000000000000B /* Build configuration list for PBXNativeTarget "JuanGo" */;
 			buildPhases = (
 				4B0000000000000000000005 /* Sources */,
 				4B0000000000000000000006 /* Frameworks */,
@@ -66,14 +61,11 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				4B0000000000000000000002 /* Lexi */,
+				4B0000000000000000000002 /* JuanGo */,
 			);
-			name = Lexi;
-			packageProductDependencies = (
-				4B0000000000000000000011 /* PulsoIcon */,
-			);
-			productName = Lexi;
-			productReference = 4B0000000000000000000001 /* Lexi.app */;
+			name = JuanGo;
+			productName = JuanGo;
+			productReference = 4B0000000000000000000001 /* JuanGo.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -91,7 +83,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 4B000000000000000000000A /* Build configuration list for PBXProject "Lexi" */;
+			buildConfigurationList = 4B000000000000000000000A /* Build configuration list for PBXProject "JuanGo" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -100,15 +92,12 @@
 			);
 			mainGroup = 4B0000000000000000000003;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4B0000000000000000000004 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				4B0000000000000000000008 /* Lexi */,
+				4B0000000000000000000008 /* JuanGo */,
 			);
 		};
 /* End PBXProject section */
@@ -246,7 +235,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4B000000000000000000000A /* Build configuration list for PBXProject "Lexi" */ = {
+		4B000000000000000000000A /* Build configuration list for PBXProject "JuanGo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4B000000000000000000000C /* Debug */,
@@ -255,7 +244,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4B000000000000000000000B /* Build configuration list for PBXNativeTarget "Lexi" */ = {
+		4B000000000000000000000B /* Build configuration list for PBXNativeTarget "JuanGo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4B000000000000000000000E /* Debug */,
@@ -266,20 +255,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/PulsoIcon;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		4B0000000000000000000011 /* PulsoIcon */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 4B0000000000000000000010 /* XCLocalSwiftPackageReference "Packages/PulsoIcon" */;
-			productName = PulsoIcon;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4B0000000000000000000009 /* Project object */;
 }

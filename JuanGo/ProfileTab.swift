@@ -29,7 +29,7 @@ struct ProfileTab: View {
             .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
             .sheet(isPresented: $showSettings) { SettingsView() }
             #if DEBUG
-            .task { if ProcessInfo.processInfo.environment["LEXI_SETTINGS"] != nil { showSettings = true } }   // simulator testing
+            .task { if ProcessInfo.processInfo.environment["JUANGO_SETTINGS"] != nil { showSettings = true } }   // simulator testing
             #endif
         }
     }
@@ -257,8 +257,8 @@ struct SettingsView: View {
             }
             .backupImport($pendingBackup, ctx: ctx) { message = "還原完成：\($0)" }
             #if DEBUG
-            .task {   // simulator testing: SIMCTL_CHILD_LEXI_EXPORT=1 opens the share sheet for a backup
-                if ProcessInfo.processInfo.environment["LEXI_EXPORT"] != nil, let url = try? Backup.write(Backup.full(ctx)) {
+            .task {   // simulator testing: SIMCTL_CHILD_JUANGO_EXPORT=1 opens the share sheet for a backup
+                if ProcessInfo.processInfo.environment["JUANGO_EXPORT"] != nil, let url = try? Backup.write(Backup.full(ctx)) {
                     try? await Task.sleep(for: .seconds(1)); presentShareSheet(url)
                 }
             }

@@ -21,12 +21,11 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
 ## 設計
 
 - 介面以原生 SwiftUI 元件為主（List、`.searchable`、Liquid Glass 按鈕），規則寫在 `DESIGN.md`
-- 圖示全部使用 [PulsoIcon](https://github.com/CityPulso/PulsoIcon)（會動的圖示）
-- `Packages/PulsoIcon` 是只含用到的 74 個圖示的精簡版（編譯從十幾分鐘變成十幾秒）；要加圖示時，先在 `Lexi/Icons.swift` 加對應，再執行 `scripts/trim.py`
+- 圖示全部使用 Apple 的 SF Symbols
 
 ## 安裝
 
-- **自己編譯**：用 Xcode 26 打開 `Lexi.xcodeproj`，在 Signing & Capabilities 換成自己的 Team，執行到 iPhone 或模擬器。
+- **自己編譯**：用 Xcode 26 打開 `JuanGo.xcodeproj`，在 Signing & Capabilities 換成自己的 Team，執行到 iPhone 或模擬器。
 - **自己簽名安裝 IPA**：下載 Releases 裡的 IPA，用 [Sideloadly](https://sideloadly.io) 或 [AltStore](https://altstore.io) 以自己的 Apple ID 簽名安裝。iPhone 要打開「設定 › 隱私權與安全性 › 開發者模式」，並在「設定 › 一般 › VPN 與裝置管理」信任自己的 Apple ID。免費 Apple ID 簽的 App 每 7 天要重簽一次（資料不會消失）。
 
 需求：iOS 26、Xcode 26。
@@ -37,7 +36,7 @@ JuanGo 是一個用 SwiftUI 寫的英文單字複習 App（iOS 26），用間隔
 - 國中小 1200：教育部《十二年國民基本教育課程綱要 語文領域－英語文》附錄五表一「基本 1,200 字」。
 - 多益：[TOEIC Service List 1.2](https://newgeneralservicelist.com/toeic-service-list)（Browne, C. & Culligan, B.），[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)；`words.json` 中由它而來的 `toeic` 標記同樣以 CC BY-SA 4.0 釋出。
 - 雅思、托福字表，以及中文解釋與音標：整理自 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT License），並轉為繁體中文（台灣用語），內容可能有誤。
-- 圖示：[PulsoIcon](https://github.com/CityPulso/PulsoIcon)，授權見該專案的 LICENSE。
+- 圖示：Apple SF Symbols。
 - 學習資料預設只存在自己的裝置上；登入帳號後會同步到 JuanGo 的 Supabase 專案（每個人只能讀寫自己的資料，分享清單只能用代碼取得，資料表與權限規則見 `supabase/schema.sql`）。打開 API 翻譯並設定 key 後，字典沒有的單字會傳到該 API 的伺服器翻譯；key 存在裝置的鑰匙圈，不在程式碼裡。
 
 這是一個高中自主學習專案。

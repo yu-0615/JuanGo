@@ -383,9 +383,9 @@ struct ScanView: View {
             .onAppear {
                 // level-1 words (have, are, change…) are known by everyone in 高中; start from 2 or the user's level
                 filter.minLevel = max(2, Int(settings.level) ?? 2)
-                #if DEBUG   // simulator testing: SIMCTL_CHILD_LEXI_SCAN_POS=v. (and LEXI_SCAN_LIST=1 to open the list)
+                #if DEBUG   // simulator testing: SIMCTL_CHILD_JUANGO_SCAN_POS=v. (and JUANGO_SCAN_LIST=1 to open the list)
                 let env = ProcessInfo.processInfo.environment
-                if let p = env["LEXI_SCAN_POS"] { filter.minLevel = 1; filter.pos = [p]; selected = matchKeys; showList = env["LEXI_SCAN_LIST"] != nil; return }
+                if let p = env["JUANGO_SCAN_POS"] { filter.minLevel = 1; filter.pos = [p]; selected = matchKeys; showList = env["JUANGO_SCAN_LIST"] != nil; return }
                 #endif
                 // A word list: take every word on it, with the page's own part of speech and meaning.
                 if !result.glossary.isEmpty {
