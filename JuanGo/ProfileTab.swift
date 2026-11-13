@@ -312,12 +312,12 @@ struct AITranslationSettings: View {
         @Bindable var settings = settings
         Form { Group {
             Section {
-                Toggle("用 AI 翻譯字典沒有的字", isOn: $settings.aiTranslate)
+                Toggle("AI 翻譯", isOn: $settings.aiTranslate)
                 if settings.aiTranslate { LabeledContent("目前使用", value: translator.providerName) }
             } footer: {
                 Text(settings.aiTranslate
-                     ? "查字、掃描、匯入遇到字典沒有的字，會用下面的 API 翻成詞性和繁體中文；沒有 key 時用裝置上的 Apple Intelligence。AI 回應要幾秒到十幾秒。"
-                     : "關閉時用 Apple 翻譯，比較快，但只有一個意思、沒有詞性。")
+                     ? "單字不在內建字典時，選擇使用裝置端 Apple Intelligence 翻譯，或接入大模型 API 。"
+                     : "使用 Apple 翻譯，速度較快，但只有一個意思且沒有詞性。")
             }
             if settings.aiTranslate {
                 Section {
@@ -336,14 +336,14 @@ struct AITranslationSettings: View {
                         Button("移除 key", role: .destructive) { APIKey.value = ""; key = ""; saved = false; testResult = nil }
                     }
                 } header: { Text("API") } footer: {
-                    Text("任何 OpenAI 相容的 API 都可以（Agnes、OpenRouter、Groq、Gemini…），填 API 網址（到 /v1 為止）、模型名稱和自己的 key。預設是 Agnes AI 的免費模型，key 在 platform.agnes-ai.com 免費申請。key 只存在這台裝置的鑰匙圈；設定後字典沒有的字會傳到該 API 的伺服器。")
+                    Text("支援任何大模型 API （Agnes、ChatGPT、Grok、Gemini…），填入 API 網址、模型名稱和 API key。API key 只存在此裝置的鑰匙圈。")
                 }
                 if translator.cache.count > 0 {
                     Section { LabeledContent("已翻譯", value: "\(translator.cache.count) 個字") }
                 }
             }
         }.listRowBackground(Color.cardFill) }.themedBackground()
-        .navigationTitle("API")
+        .navigationTitle("AI 翻譯")
     }
 
     private func test() async {
@@ -351,7 +351,7 @@ struct AITranslationSettings: View {
         do {
             let r = try await ChatAPI.translate(["serendipity"], baseURL: settings.apiBaseURL, model: settings.apiModel, key: APIKey.value)
             if let i = r["serendipity"] { testResult = "成功：\(i.pos) \(i.meanings.joined(separator: "、"))" }
-            else { testResult = "有回應，但看不懂格式" }
+            else { testResult = "格式解析失敗" }
         } catch { testResult = "失敗：\(error.localizedDescription)" }
     }
 }
@@ -376,7 +376,7 @@ struct AccountView: View {
                         Task { do { message = try await cloud.sync(ctx) } catch { message = error.localizedDescription } }
                     }.disabled(cloud.syncing)
                 } footer: {
-                    Text("打開 App 時會先下載雲端的資料合併，離開 App 時自動上傳。換手機或重裝後登入同一個 Email，單字和進度就會回來。合併時不會刪除東西，所以在一台裝置刪掉的字，另一台還會留著。")
+                    Text("不同裝置登入同一個 Email，單字和進度會同步。")
                 }
                 Section {
                     if lists.isEmpty { Text("還沒有分享過清單").foregroundStyle(.secondary) }
@@ -397,7 +397,7 @@ struct AccountView: View {
                         .contextMenu { Button("拷貝代碼") { UIPasteboard.general.string = Cloud.pretty(l.code) } }
                     }
                 } header: { Text("我分享的清單") } footer: {
-                    Text("在清單頁右上角「分享」可以產生代碼。左滑可以停止分享，代碼就失效。")
+                    Text("在清單頁右上角「分享」可以產生代碼。左滑可以停止分享。")
                 }
                 Section { Button("登出", role: .destructive) { cloud.signOut(); lists = [] } }
             } else {
@@ -413,11 +413,11 @@ struct AccountView: View {
                         }
                     }.disabled(sending || !email.contains("@") || !email.contains("."))
                     if let sentTo {
-                        Text("已寄到 \(sentTo)。在這支 iPhone 上打開信，點「Sign in」就會回到 JuanGo 完成登入。沒收到的話看看垃圾郵件。")
+                        Text("已寄到 \(sentTo)。點擊信件「Sign in」就會回到 JuanGo 完成登入。沒收到請查看垃圾郵件。")
                             .font(.app(.footnote)).foregroundStyle(.secondary)
                     }
                 } header: { Text("登入") } footer: {
-                    Text("不用密碼：輸入 Email，用信裡的連結登入。登入後單字、熟練度、清單和複習紀錄會備份到雲端（API key 不會上傳）。")
+                    Text("輸入 Email 後使用連結登入。登入後單字、熟練度、清單和複習紀錄會同步到雲端。")
                 }
             }
         }.listRowBackground(Color.cardFill) }.themedBackground()

@@ -113,6 +113,19 @@ struct WordsTab: View {
         return ws
     }
 
+    /// Words grouped by the day they were added, newest or oldest first (spelled out with explicit types:
+    /// the inline version took the compiler most of a second to type-check).
+    private var dayGroups: (days: [Date], words: [Date: [Word]]) {
+        let newest = sort == .newest
+        var byDay: [Date: [Word]] = [:]
+        for w in filtered { byDay[Calendar.current.startOfDay(for: w.addedAt), default: []].append(w) }
+        for (d, ws) in byDay {
+            byDay[d] = ws.sorted { (a: Word, b: Word) -> Bool in newest ? a.addedAt > b.addedAt : a.addedAt < b.addedAt }
+        }
+        let days: [Date] = byDay.keys.sorted { (a: Date, b: Date) -> Bool in newest ? a > b : a < b }
+        return (days, byDay)
+    }
+
     private var allWords: some View {
         Group {
             if words.isEmpty {
@@ -121,10 +134,10 @@ struct WordsTab: View {
             } else {
                 List { Group {
                     if sort == .newest || sort == .oldest {
-                        let groups = Swift.Dictionary(grouping: filtered) { Calendar.current.startOfDay(for: $0.addedAt) }
-                        ForEach(groups.keys.sorted(by: sort == .newest ? (>) : (<)), id: \.self) { day in
+                        let groups = dayGroups
+                        ForEach(groups.days, id: \.self) { day in
                             Section {
-                                ForEach(groups[day]!.sorted { sort == .newest ? $0.addedAt > $1.addedAt : $0.addedAt < $1.addedAt }) { row($0) }
+                                ForEach(groups.words[day] ?? []) { row($0) }
                             } header: {
                                 Text(dayLabel(day))
                             }
