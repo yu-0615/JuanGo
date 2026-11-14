@@ -130,6 +130,12 @@ struct MainTabs: View {
                 .map { GlossaryParser.tidy($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             let deduped = meanings.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
             if deduped != w.meanings { w.meanings = deduped; changed = true }
+            // the dictionary's phonetics were cleaned up (^ɔd → ɡɔd, ' → ˈ, Cyrillic ә → ə): copies saved
+            // in the old notation take the new one
+            if w.ipa.contains(where: { "'ә^\\є".contains($0) }), let e = Dictionary_.lookup(w.term),
+               e.w.lowercased() == w.term.lowercased(), !e.ipa.isEmpty, e.ipa != w.ipa {
+                w.ipa = e.ipa; changed = true
+            }
             let fixed = GlossaryParser.cleanTerm(w.term)
             guard fixed != w.term, !terms.contains(fixed) else { continue }
             let old = w.term
