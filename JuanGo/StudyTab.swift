@@ -1050,7 +1050,7 @@ struct ChoiceQuestion: View {
     /// with every part swapped for a dictionary word of the same part of speech and similar length.
     private func splitOptions(_ parts: [String]) -> [String] {
         let library = (try? ctx.fetch(FetchDescriptor<Word>())) ?? []
-        let phrases = Set((library.map(\.term) + Dictionary_.all.map(\.w))
+        let phrases = Set((library.map(\.term) + Dictionary_.phrases.map(\.w))
             .filter { $0 != word.term && $0.contains(" ") && GlossaryParser.cleanTerm($0) == $0 })
         var picks: [String] = []
         for p in phrases.shuffled() {
@@ -1093,7 +1093,7 @@ struct ChoiceQuestion: View {
         let samePos = others.filter { $0.pos == word.pos }.shuffled()
         // a phrase among single words gives itself away, so English options for a phrase are phrases first
         let phrases = !answersInZh && word.term.contains(" ")
-            ? (others + Dictionary_.all.filter { $0.w.contains(" ") && !$0.zh.isEmpty }.map { ($0.w, $0.zh.first ?? "", $0.pos) })
+            ? (others + Dictionary_.phrases.map { ($0.w, $0.zh.first ?? "", $0.pos) })
                 .filter { $0.term.contains(" ") && $0.term != word.term && GlossaryParser.cleanTerm($0.term) == $0.term }.shuffled()
             : []
         var picks: [String] = []
@@ -1521,6 +1521,8 @@ struct HistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     var body: some View {
+        // one fetch for every row, not one per row (up to 500)
+        let byTerm = Swift.Dictionary(((try? ctx.fetch(FetchDescriptor<Word>())) ?? []).map { ($0.term, $0) }, uniquingKeysWith: { a, _ in a })
         NavigationStack {
             List { Group {
                 if logs.isEmpty { EmptyState("還沒有學習紀錄", icon: "clock") }
@@ -1529,7 +1531,7 @@ struct HistoryView: View {
                     Section(day.formatted(.dateTime.month().day().weekday().locale(.zh))) {
                         ForEach(groups[day]!) { l in
                             // a row opens the word's page (a word deleted since then just shows the row)
-                            let w = Library.word(l.term, in: ctx)
+                            let w = byTerm[l.term]
                             NavigationLink(value: w) {
                             HStack {
                                 Text(l.term).font(.app(.headline))

@@ -239,6 +239,8 @@ enum Dictionary_ {
     }
     /// entries grouped by part of speech, for picking quiz distractors
     static let byPos: [String: [DictEntry]] = Dictionary(grouping: all.filter { !$0.zh.isEmpty }, by: \.pos)
+    /// The few multi-word entries (ice cream, account for), kept apart so quizzes don't scan all 10k words for them.
+    static let phrases: [DictEntry] = all.filter { $0.w.contains(" ") && !$0.zh.isEmpty }
 }
 
 // MARK: - Spaced repetition
