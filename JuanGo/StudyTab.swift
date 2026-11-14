@@ -380,6 +380,9 @@ struct StudyFlow: View {
             }
         }
         .animation(.easeInOut, value: phase)
+        // background example sentences wait until the round closes, so the screens behind it don't redraw
+        .onAppear { ExampleStore.shared.holdBackground = true }
+        .onDisappear { ExampleStore.shared.holdBackground = false }
 
         #if DEBUG
         .task {

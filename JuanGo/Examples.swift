@@ -213,7 +213,7 @@ final class ExampleStore {
 
     private func pump() {
         guard inFlight == nil, !queue.isEmpty else { return }
-        let (e, key, _) = queue.removeFirst()
+        let (e, key, priority) = queue.removeFirst()
         inFlight = key
         #if canImport(FoundationModels)
         let session = warm ?? Self.makeSession()
@@ -233,7 +233,7 @@ final class ExampleStore {
             if let r {
                 cache[key] = r
                 save()
-                applyToSavedWord(e.w, key, r)
+                applyToSavedWord(e.w, key, r, now: priority != .background)
             } else {
                 failed.insert(key)
             }
@@ -243,16 +243,62 @@ final class ExampleStore {
 
     /// Words saved before their example existed pick it up here.
     var container: ModelContainer?
-    private func applyToSavedWord(_ term: String, _ key: String, _ r: Example) {
+    /// Background sentences wait here and go into the words a batch at a time. Saving each one (every 1–7 s
+    /// during backfill) made every tab with a live word query redraw each time, the home screen behind an open
+    /// round included.
+    @ObservationIgnored private var pendingApply: [(term: String, key: String, ex: Example)] = []
+    @ObservationIgnored private var applyTask: Task<Void, Never>?
+    /// Set while a round is open, so background sentences don't redraw the screens behind it.
+    @ObservationIgnored var holdBackground = false
+
+    private func applyToSavedWord(_ term: String, _ key: String, _ r: Example, now: Bool) {
+        guard now else {
+            pendingApply.append((term, key, r))
+            if applyTask == nil {
+                applyTask = Task { try? await Task.sleep(for: .seconds(10)); applyTask = nil; flushApply() }
+            }
+            return
+        }
+        // a sentence somebody is waiting for (the card on screen) goes in right away
         guard let ctx = container?.mainContext else { return }
         var fd = FetchDescriptor<Word>(predicate: #Predicate { $0.term == term }); fd.fetchLimit = 1
         if let w = try? ctx.fetch(fd).first, w.example.isEmpty, Self.key(term: w.term, meanings: w.meanings) == key {
-            w.example = r.en; w.exampleZh = r.zh; try? ctx.save()
+            w.example = r.en; w.exampleZh = r.zh
         }
     }
 
+    private func flushApply() {
+        guard !pendingApply.isEmpty, let ctx = container?.mainContext else { return }
+        if holdBackground {   // try again after the round
+            applyTask = Task { try? await Task.sleep(for: .seconds(10)); applyTask = nil; flushApply() }
+            return
+        }
+        let batch = pendingApply; pendingApply = []
+        let terms = Set(batch.map(\.term))
+        let words = (try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { terms.contains($0.term) }))) ?? []
+        let byTerm = Dictionary(words.map { ($0.term, $0) }, uniquingKeysWith: { a, _ in a })
+        var changed = false
+        for (term, key, r) in batch {
+            if let w = byTerm[term], w.example.isEmpty, Self.key(term: w.term, meanings: w.meanings) == key {
+                w.example = r.en; w.exampleZh = r.zh; changed = true
+            }
+        }
+        if changed { try? ctx.save() }
+    }
+
+    /// The cache file is written a few seconds after the last new sentence, off the main thread,
+    /// instead of encoding and rewriting the whole file after every sentence.
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
     private func save() {
-        if let d = try? JSONEncoder().encode(cache) { try? d.write(to: Self.fileURL, options: .atomic) }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            let snapshot = cache, url = Self.fileURL
+            await Task.detached(priority: .utility) {
+                if let d = try? JSONEncoder().encode(snapshot) { try? d.write(to: url, options: .atomic) }
+            }.value
+        }
     }
 
     #if canImport(FoundationModels)
