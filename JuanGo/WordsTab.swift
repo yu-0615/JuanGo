@@ -147,6 +147,11 @@ struct WordsTab: View {
                     }
                 }.listRowBackground(Color.cardFill) }.themedBackground()
                 .listStyle(.insetGrouped)
+                .overlay {
+                    if !search.isEmpty, filtered.isEmpty {
+                        EmptyState("沒有「\(search)」", icon: "magnifyingglass", message: "到「新增」可以查字典裡的字。")
+                    }
+                }
                 .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋英文或中文")
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
