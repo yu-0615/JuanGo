@@ -121,7 +121,15 @@ struct FlashcardQuestion: View {
             if !word.example.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     TappableSentence(sentence: word.example, highlight: word.term, font: .app(.body, .medium)) { lookup = LookupTerm(term: $0) }
-                    if back && settings.showTranslation { Text(word.exampleZh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+                    if back {
+                        HStack(alignment: .firstTextBaseline) {
+                            if settings.showTranslation { Text(word.exampleZh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+                            Spacer(minLength: 0)
+                            Button { Speech.say(word.example) } label: { LIcon("speaker.wave.2.fill").font(.app(.subheadline)) }
+                                .buttonStyle(.borderless).foregroundStyle(.tint)
+                                .accessibilityLabel("念例句")
+                        }
+                    }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
