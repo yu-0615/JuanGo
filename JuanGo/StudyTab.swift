@@ -107,6 +107,8 @@ struct StudyTab: View {
                 }
             }
             .frame(width: 112, height: 112)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("今天新字 \(stats.newToday) 個，目標 \(settings.dailyGoal) 個")
             VStack(alignment: .leading, spacing: 12) {
                 statLine("arrow.triangle.2.circlepath", "待複習", "\(h.due.count) 個")
                 Menu {
