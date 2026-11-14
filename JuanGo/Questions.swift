@@ -255,6 +255,7 @@ struct ChoiceQuestion: View {
                     .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             }.buttonStyle(.plain).foregroundStyle(.tint)
             .accessibilityLabel("再聽一次")
+            SlowReplay(term: word.term)
             Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
@@ -339,6 +340,17 @@ struct ChoiceQuestion: View {
     }
 }
 
+/// Plays the word again at a slow rate, for when the normal speed is hard to catch.
+struct SlowReplay: View {
+    let term: String
+    var body: some View {
+        Button { Speech.say(term, rate: 0.28) } label: { Label("慢速再聽", pulso: "tortoise") }
+            .font(.app(.subheadline, .semibold)).foregroundStyle(.tint)
+            .buttonStyle(.borderless)
+            .frame(minHeight: 44)
+    }
+}
+
 struct SpellingQuestion: View {
     let word: Word
     let listen: Bool
@@ -365,6 +377,8 @@ struct SpellingQuestion: View {
                         LIcon("speaker.wave.3.fill").font(.app(size: 40)).frame(width: 100, height: 100)
                             .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
                     }.buttonStyle(.plain).foregroundStyle(.tint)
+                    .accessibilityLabel("再聽一次")
+                    SlowReplay(term: word.term)
                 } else {
                     Text(word.meaningLine).font(.app(size: 28, .bold)).multilineTextAlignment(.center)
                     if !word.pos.isEmpty { Text(word.pos).font(.app(.subheadline, .semibold)).foregroundStyle(.secondary) }
