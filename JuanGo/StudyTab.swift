@@ -77,11 +77,15 @@ struct StudyTab: View {
     private var newWords: [Word] { Array(studyable.filter(\.isNew).sorted { $0.addedAt < $1.addedAt }.prefix(newLeft)) }
     private var nothingQueued: Bool { due.isEmpty && newWords.isEmpty }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     /// Today's new words as a ring beside the day's numbers.
     private var todayRing: some View {
         @Bindable var settings = settings
         let progress = Double(stats.newToday) / Double(max(1, settings.dailyGoal))
-        return HStack(spacing: 22) {
+        // at accessibility text sizes the numbers go under the ring instead of wrapping beside it
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16)) : AnyLayout(HStackLayout(spacing: 22))
+        return layout {
             ZStack {
                 Circle().stroke(Color.themeAccent.opacity(0.12), lineWidth: 12)
                 Circle().trim(from: 0, to: min(1, progress))
