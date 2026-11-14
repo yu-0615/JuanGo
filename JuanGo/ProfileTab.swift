@@ -6,6 +6,8 @@ struct ProfileTab: View {
     @Query(sort: \ReviewLog.date) private var logs: [ReviewLog]
     @State private var selectedDay: Date?
     @State private var showSettings = false
+    @State private var dayLogs: DayLogs?
+    struct DayLogs: Identifiable { let id = UUID(); let logs: [ReviewLog] }
 
     private var stats: Stats { Stats(logs: logs, words: words) }
 
@@ -28,6 +30,7 @@ struct ProfileTab: View {
             .themedBackground()
             .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(item: $dayLogs) { HistoryView(logs: $0.logs) }
             #if DEBUG
             .task { if ProcessInfo.processInfo.environment["JUANGO_SETTINGS"] != nil { showSettings = true } }   // simulator testing
             #endif
@@ -106,11 +109,20 @@ struct ProfileTab: View {
                     }
                 }
             }
-            HStack {
-                Text(chosen.formatted(.dateTime.month().day().weekday().locale(.zh)))
-                Spacer()
-                Text("練了 \(stats.count(on: chosen)) 個字").fontWeight(.bold)
+            // the chosen day's words, newest first, in the same list as 主頁's 學習紀錄
+            Button {
+                dayLogs = DayLogs(logs: logs.filter { cal.isDate($0.date, inSameDayAs: chosen) }.reversed())
+            } label: {
+                HStack {
+                    Text(chosen.formatted(.dateTime.month().day().weekday().locale(.zh))).foregroundStyle(.primary)
+                    Spacer()
+                    Text("練了 \(stats.count(on: chosen)) 個字").fontWeight(.bold).foregroundStyle(.primary)
+                    if stats.count(on: chosen) > 0 { LIcon("chevron.right").font(.app(.footnote, .semibold)).foregroundStyle(.tertiary) }
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .disabled(stats.count(on: chosen) == 0)
             .font(.app(.subheadline))
         }
         .padding(.vertical, 6)
