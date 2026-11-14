@@ -14,14 +14,16 @@ struct FlashcardQuestion: View {
     @State private var flipped = false
     @State private var drag: CGSize = .zero
     @State private var lookup: LookupTerm?
+    /// 減少動態效果: the card cross-fades instead of turning over
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
                 face(back: false).opacity(flipped ? 0 : 1)
-                face(back: true).opacity(flipped ? 1 : 0).rotation3DEffect(.degrees(180), axis: (0, 1, 0))
+                face(back: true).opacity(flipped ? 1 : 0).rotation3DEffect(.degrees(reduceMotion ? 0 : 180), axis: (0, 1, 0))
             }
-            .rotation3DEffect(.degrees(flipped ? 180 : 0), axis: (0, 1, 0), perspective: 0.4)
+            .rotation3DEffect(.degrees(flipped && !reduceMotion ? 180 : 0), axis: (0, 1, 0), perspective: 0.4)
             .overlay(alignment: .top) { swipeHint }
             .offset(x: drag.width, y: drag.height * 0.2)
             .rotationEffect(.degrees(Double(drag.width) / 22))
