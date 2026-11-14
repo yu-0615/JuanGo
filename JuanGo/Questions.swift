@@ -406,7 +406,7 @@ struct SpellingQuestion: View {
                 .accessibilityLabel("拼出單字，已輸入 \(text.count) 個字母，共 \(word.term.count) 個")
                 .accessibilityAddTraits(.isButton)
             if let checked {
-                Label(checked ? (hints > 0 ? "拼對了（用了 \(hints) 次提示）" : "拼對了！") : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
+                Label(checked ? (hints > 0 ? "拼對了（用了 \(hints) 次提示）" : Self.sameWord(text.lowercased(), word.term.lowercased()) ? "拼對了！另一種拼法是 \(word.term)" : "拼對了！") : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
                       pulso: checked ? "checkmark.circle.fill" : nearMiss ? "exclamationmark.circle.fill" : "xmark.circle.fill")
                     .font(.app(.headline)).foregroundStyle(checked ? Color.knowInk : nearMiss ? Color.unsureInk : Color.themeAccent)
             } else {
@@ -476,7 +476,7 @@ struct SpellingQuestion: View {
             ForEach(rows.indices, id: \.self) { r in
                 HStack(spacing: gap) {
                     ForEach(rows[r], id: \.lowerBound) { w in
-                        HStack(spacing: 4) { ForEach(Array(w), id: \.self) { k in box(k, t: t, side: side, wrong: checked != nil && !matched.contains(k)) } }
+                        HStack(spacing: 4) { ForEach(Array(w), id: \.self) { k in box(k, t: t, side: side, wrong: checked == false && !matched.contains(k)) } }
                     }
                 }
             }
@@ -504,13 +504,33 @@ struct SpellingQuestion: View {
             s.lowercased().replacingOccurrences(of: "’", with: "'").split(separator: " ").joined(separator: " ")
         }
         let typed = plain(text), answer = plain(word.term)
-        let ok = typed == answer
+        let ok = typed == answer || Self.sameWord(typed, answer)
         nearMiss = !ok && answer.count >= 4 && Self.distance(typed, answer) == 1
         checked = ok
         Speech.say(word.term)
         let letters = word.term.filter(\.isLetter).count
         let grade: Grade = hints == 0 ? .good : hints * 2 > letters ? .again : .unsure
         if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(grade) } }
+    }
+
+    /// British spellings in the dictionary (from its UK sources) and their American forms: either is right.
+    static let britishToAmerican: [String: String] = [
+        "favour": "favor", "behaviour": "behavior", "harbour": "harbor", "rumour": "rumor", "flavour": "flavor",
+        "endeavour": "endeavor", "armour": "armor", "glamour": "glamor", "odour": "odor", "tumour": "tumor",
+        "clamour": "clamor", "centre": "center", "theatre": "theater", "fibre": "fiber", "meagre": "meager",
+        "calibre": "caliber", "catalogue": "catalog", "dialogue": "dialog", "monologue": "monolog", "prologue": "prolog",
+        "paralyse": "paralyze", "memorise": "memorize", "defence": "defense", "offence": "offense", "licence": "license",
+        "tyre": "tire", "mould": "mold", "plough": "plow", "aluminium": "aluminum", "moustache": "mustache",
+        "storey": "story", "draught": "draft", "sceptical": "skeptical", "manoeuvre": "maneuver",
+        "acknowledgement": "acknowledgment", "fulfil": "fulfill", "axe": "ax", "gaol": "jail", "doughnut": "donut",
+    ]
+    /// American words that mean something else too (tire 疲倦, story 故事, draft 草稿): the British form isn't
+    /// accepted for them, only the other way round.
+    private static let oneWay: Set<String> = ["tire", "story", "draft", "jail"]
+    static func sameWord(_ typed: String, _ answer: String) -> Bool {
+        if britishToAmerican[answer] == typed { return true }
+        if let us = britishToAmerican[typed], us == answer, !oneWay.contains(answer) { return true }
+        return false
     }
 
     /// Keeps what's typed right so far and adds the next letter (with any hyphen or space after it).
