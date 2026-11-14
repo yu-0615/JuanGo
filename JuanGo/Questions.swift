@@ -474,7 +474,11 @@ struct SpellingQuestion: View {
 
     private func check() {
         guard checked == nil, !text.isEmpty else { return }
-        let typed = text.trimmingCharacters(in: .whitespaces).lowercased(), answer = word.term.lowercased()
+        // the field types a straight ' but some terms carry a curly ’ (o’clock); extra spaces don't count either
+        func plain(_ s: String) -> String {
+            s.lowercased().replacingOccurrences(of: "’", with: "'").split(separator: " ").joined(separator: " ")
+        }
+        let typed = plain(text), answer = plain(word.term)
         let ok = typed == answer
         nearMiss = !ok && answer.count >= 4 && Self.distance(typed, answer) == 1
         checked = ok
@@ -485,7 +489,7 @@ struct SpellingQuestion: View {
     /// Positions in `answer` that line up with what was typed (longest common subsequence), so a missed letter
     /// marks only that letter, not everything after it: atraction → a t [t] r a c t i o n.
     static func matchedLetters(of answer: String, in typed: String) -> Set<Int> {
-        let a = Array(answer.lowercased()), b = Array(typed.lowercased())
+        let a = Array(answer.lowercased().replacingOccurrences(of: "’", with: "'")), b = Array(typed.lowercased())
         guard !a.isEmpty, !b.isEmpty else { return [] }
         var l = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
         for i in stride(from: a.count - 1, through: 0, by: -1) {
