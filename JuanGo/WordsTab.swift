@@ -340,11 +340,12 @@ struct ListWordsView: View {
     @State private var practice: StudyRequest?
 
     var body: some View {
+        let have = Set(words.map(\.term))   // once, not a scan of every saved word for each of the deck's rows
         List { Group {
             switch route {
             case .deck, .level:
                 ForEach(entries) { e in
-                    let saved = words.contains { $0.term == e.w }
+                    let saved = have.contains(e.w)
                     HStack {
                         VStack(alignment: .leading) {
                             Text(e.w).font(.app(.headline))
