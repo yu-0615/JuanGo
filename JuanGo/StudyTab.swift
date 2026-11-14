@@ -699,7 +699,8 @@ struct SessionView: View {
     }
 
     private func grade(_ g: Grade) {
-        gradeTick += 1
+        // typed and multiple-choice questions give their own right/wrong feedback the moment they're answered
+        if engine.current?.type == .flashcard { gradeTick += 1 }
         engine.grade(g, ctx: ctx)
     }
 }
@@ -965,6 +966,10 @@ struct ChoiceQuestion: View {
             if type == .listenZh || type == .listenEn || (!settings.muted && type == .enToZh) { Speech.say(word.term) }
         }
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
+        .sensoryFeedback(trigger: picked) { _, new in
+            guard settings.haptics, let new else { return nil }
+            return new == correct ? .success : .error
+        }
     }
 
     @ViewBuilder private var prompt: some View {
@@ -1038,6 +1043,7 @@ struct SpellingQuestion: View {
     var onUndo: () -> Void = {}
     var onGrade: (Grade) -> Void
     @Environment(\.modelContext) private var ctx
+    @Environment(AppSettings.self) private var settings
     @State private var text = ""
     @State private var checked: Bool?
     @State private var gaveUp = false
@@ -1101,6 +1107,10 @@ struct SpellingQuestion: View {
         .onAppear { if listen { Speech.say(word.term) } }
         // the keyboard comes up by itself, so the answer can be typed right away
         .task { try? await Task.sleep(for: .milliseconds(350)); typing = true }
+        .sensoryFeedback(trigger: checked) { _, new in
+            guard settings.haptics, let new else { return nil }
+            return new ? .success : gaveUp ? nil : nearMiss ? .warning : .error
+        }
     }
 
     /// One box per letter; typed letters fill in as you go.
