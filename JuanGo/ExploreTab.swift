@@ -115,7 +115,7 @@ struct ExploreTab: View {
                     }
                 }
             }
-            if !levels.isEmpty || posFilter != nil { Button("清除篩選", role: .destructive) { levels = []; posFilter = nil } }
+            if !levels.isEmpty || posFilter != nil { Button("清除篩選") { levels = []; posFilter = nil } }
         } label: {
             LIcon(levels.isEmpty && posFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
         }

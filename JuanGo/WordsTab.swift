@@ -12,6 +12,7 @@ struct WordsTab: View {
     @State private var sort = WordSort.newest
     @State private var selecting = false
     @State private var selection = Set<PersistentIdentifier>()
+    @State private var confirmBulkDelete = false
     @State private var newList = false
     @State private var newListName = ""
     @State private var moveSheet = false
@@ -59,11 +60,14 @@ struct WordsTab: View {
                     ToolbarItemGroup(placement: .bottomBar) {
                         Button("加入清單", pulso: "folder.badge.plus") { moveSheet = true }
                         Spacer()
-                        Button("刪除 \(selection.count) 個", pulso: "trash", role: .destructive) { deleteSelected() }
+                        Button("刪除 \(selection.count) 個", pulso: "trash", role: .destructive) { confirmBulkDelete = true }
                     }
                 }
             }
             .navigationDestination(for: Word.self) { WordDetailView(word: $0) }
+            .confirmationDialog("刪除 \(selection.count) 個單字？", isPresented: $confirmBulkDelete, titleVisibility: .visible) {
+                Button("刪除", role: .destructive) { deleteSelected() }
+            } message: { Text("這些字的學習進度會一起刪除；每天的練習紀錄會保留。") }
             .navigationDestination(item: $debugWord) { WordDetailView(word: $0) }
             .task {   // simulator testing: SIMCTL_CHILD_JUANGO_WORD=reduce opens that word's page
                 if let t = ProcessInfo.processInfo.environment["JUANGO_WORD"] { debugWord = words.first { $0.term == t } }
@@ -547,7 +551,7 @@ struct WordDetailView: View {
         }
         .confirmationDialog("刪除「\(word.term)」？", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("刪除", role: .destructive) { dismiss(); Library.remove(word, in: ctx) }
-        } message: { Text("學習紀錄也會一併移除。") }
+        } message: { Text("這個字的學習進度會一起刪除；每天的練習紀錄會保留。") }
         .confirmationDialog("重設「\(word.term)」的學習進度？", isPresented: $confirmReset, titleVisibility: .visible) {
             Button("重設", role: .destructive) { word.srsLevel = 0; word.dueDate = nil; word.reviewCount = 0; try? ctx.save() }
         } message: { Text("這個字會回到「未學」，之後當作新字重新練習。") }
