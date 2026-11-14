@@ -194,6 +194,10 @@ enum Backup {
         var lists: [String: WordList] = [:]
         for l in (try? ctx.fetch(FetchDescriptor<WordList>())) ?? [] { lists[l.name] = l }
         for r in f.lists {
+            if WordList.builtInNames.contains(r.name) {   // the built-in list, not a folder with the same name
+                for t in r.terms { if let w = existing[t] { if r.name == "喜歡" { w.favorite = true } else { w.inMyWords = true } } }
+                continue
+            }
             let l: WordList
             if let e = lists[r.name] { l = e } else {
                 l = WordList(name: r.name)

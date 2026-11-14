@@ -313,9 +313,10 @@ struct AddToListSheet: View {
                 TextField("清單名稱", text: $newName)
                 Button("建立") {
                     let n = newName.trimmingCharacters(in: .whitespaces)
-                    if !n.isEmpty { ctx.insert(WordList(name: n)); try? ctx.save() }
+                    if WordList.isNewName(n, in: ctx) { ctx.insert(WordList(name: n)); try? ctx.save() }
                     newName = ""
                 }
+                .disabled(!WordList.isNewName(newName, in: ctx))
                 Button("取消", role: .cancel) { newName = "" }
             }
         }

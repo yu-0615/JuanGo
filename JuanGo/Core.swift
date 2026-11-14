@@ -705,3 +705,16 @@ extension Locale {
     /// The UI is Traditional Chinese regardless of the device language, so dates follow it too.
     static let zh = Locale(identifier: "zh-Hant-TW")
 }
+
+extension WordList {
+    /// 我的單字 and 喜歡 are built-in lists; a folder with the same name showed up twice on 主頁
+    /// (importing a shared 我的單字 made one).
+    static let builtInNames: Set<String> = ["我的單字", "喜歡"]
+
+    /// A name a new list can take: not empty, not a built-in list's name, not one already used.
+    static func isNewName(_ name: String, in ctx: ModelContext) -> Bool {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty, !builtInNames.contains(n) else { return false }
+        return ((try? ctx.fetch(FetchDescriptor<WordList>())) ?? []).allSatisfy { $0.name != n }
+    }
+}

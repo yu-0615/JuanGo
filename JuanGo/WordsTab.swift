@@ -69,9 +69,10 @@ struct WordsTab: View {
                 TextField("清單名稱", text: $newListName)
                 Button("建立") {
                     let n = newListName.trimmingCharacters(in: .whitespaces)
-                    if !n.isEmpty { ctx.insert(WordList(name: n)); try? ctx.save() }
+                    if WordList.isNewName(n, in: ctx) { ctx.insert(WordList(name: n)); try? ctx.save() }
                     newListName = ""
                 }
+                .disabled(!WordList.isNewName(newListName, in: ctx))
                 Button("取消", role: .cancel) { newListName = "" }
             }
             .sheet(isPresented: $moveSheet) {
