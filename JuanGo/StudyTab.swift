@@ -38,12 +38,13 @@ struct StudyTab: View {
                         showHistory = true
                     }
                 }
-                Section { MasteryCard(distribution: Stats(logs: [], words: studyable).distribution, boxed: false) }
+                // the lists come before the chart: practising a list is what this screen is opened for most
                 Section("我的清單") {
                     listRow("我的單字", icon: "character.book.closed.fill", words: words.filter(\.inMyWords))
                     listRow("喜歡", icon: "heart.fill", words: words.filter(\.favorite))
                     ForEach(lists) { l in listRow(l.name, icon: "folder.fill", words: l.words) }
                 }
+                Section { MasteryCard(distribution: Stats(logs: [], words: studyable).distribution, boxed: false) }
                 Section {
                     deckRows
                 } header: {
