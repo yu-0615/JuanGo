@@ -901,8 +901,10 @@ struct ChoiceQuestion: View {
     var onGrade: (Grade) -> Void
     @Environment(\.modelContext) private var ctx
     @Environment(AppSettings.self) private var settings
-    @Query private var library: [Word]
     @State private var options: [String] = []
+    /// each wrong option's other side (the English word of a Chinese option, and the other way round),
+    /// shown under it once picked, so a wrong answer still teaches a word
+    @State private var otherSide: [String: String] = [:]
     @State private var picked: String?
     @State private var lookup: LookupTerm?
 
@@ -921,7 +923,12 @@ struct ChoiceQuestion: View {
                             .foregroundStyle(picked == nil ? Color.themeAccent : .primary)
                             .frame(width: 30, height: 30)
                             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
-                        Text(o).font(.app(.headline)).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(o).font(.app(.headline)).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
+                            if picked == o, o != correct, let other = otherSide[o] {
+                                Text(other).font(.app(.subheadline, .semibold)).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                        }
                         Spacer()
                         if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
                         else if picked == o { LIcon("xmark.circle.fill").foregroundStyle(Color.themeAccent) }
@@ -931,7 +938,8 @@ struct ChoiceQuestion: View {
                     .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(fill(for: o)))
                 }
                 .buttonStyle(.plain)
-                .disabled(picked != nil)
+                // not .disabled: that dimmed every row, the right answer included, just when it should stand out
+                .allowsHitTesting(picked == nil)
             }
             Spacer(minLength: 10)
             HStack(spacing: 18) {
@@ -993,6 +1001,7 @@ struct ChoiceQuestion: View {
     }
 
     private func choose(_ o: String) {
+        guard picked == nil else { return }
         picked = o
         if o == correct {
             Speech.say(word.term)
@@ -1003,6 +1012,8 @@ struct ChoiceQuestion: View {
     private func makeOptions() -> [String] {
         // Distractors come from same-part-of-speech dictionary words plus the user's own; a small random sample
         // is enough (mapping all 10k dictionary entries on every question made the card transition stutter).
+        // fetched once here rather than kept live with @Query, which re-rendered the question on every save
+        let library = (try? ctx.fetch(FetchDescriptor<Word>())) ?? []
         let own: [(term: String, zh: String, pos: String)] = library.map { ($0.term, $0.primaryMeaning, $0.pos) }
         let dictSame = (Dictionary_.byPos[word.pos] ?? []).shuffled().prefix(40).map { ($0.w, $0.zh.first ?? "", $0.pos) }
         let dictAny = (0..<40).compactMap { _ in Dictionary_.all.randomElement() }.map { ($0.w, $0.zh.first ?? "", $0.pos) }
@@ -1012,7 +1023,7 @@ struct ChoiceQuestion: View {
         var picks: [String] = []
         for c in (samePos + others.shuffled()) {
             let v = answersInZh ? c.zh : c.term
-            if !picks.contains(v) && v != correct { picks.append(v) }
+            if !picks.contains(v) && v != correct { picks.append(v); otherSide[v] = answersInZh ? c.term : c.zh }
             if picks.count == 3 { break }
         }
         return (picks + [correct]).shuffled()
