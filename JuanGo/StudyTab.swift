@@ -1067,13 +1067,21 @@ struct SpellingQuestion: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 150)
+            // The letters are typed straight into the boxes; the text field that takes the keystrokes sits hidden
+            // behind them (a separate field below repeated the same letters). It's a UIKit field because SwiftUI's
+            // autocorrectionDisabled() still leaves the suggestion bar up, which spells the answer out.
             letterBoxes
-            // a UIKit field: SwiftUI's autocorrectionDisabled() still leaves the suggestion bar up, which spells the answer out
-            SpellingField(placeholder: "在這裡拼出單字", text: $text, focused: $typing, onSubmit: check)
-                .padding(.horizontal, 16).frame(height: 54)
-                .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(typing && checked == nil ? Color.themeAccent : .clear, lineWidth: 2))
-                .disabled(checked != nil)
+                .background {
+                    SpellingField(placeholder: "", text: $text, focused: $typing, maxLength: word.term.count, onSubmit: check)
+                        .allowsHitTesting(false)
+                        .disabled(checked != nil)
+                        .accessibilityLabel("拼出單字")
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { if checked == nil { typing = true } }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("拼出單字，已輸入 \(text.count) 個字母，共 \(word.term.count) 個")
+                .accessibilityAddTraits(.isButton)
             if let checked {
                 Label(checked ? "拼對了！" : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
                       pulso: checked ? "checkmark.circle.fill" : nearMiss ? "exclamationmark.circle.fill" : "xmark.circle.fill")
@@ -1118,7 +1126,7 @@ struct SpellingQuestion: View {
     private var letterBoxes: some View {
         let t = Array(word.term), typed = Array(text)
         let matched = checked != nil ? Self.matchedLetters(of: word.term, in: text) : []
-        let side = min(34, (UIScreen.main.bounds.width - 40) / CGFloat(max(1, t.count)) - 4)
+        let side = min(40, (UIScreen.main.bounds.width - 40) / CGFloat(max(1, t.count)) - 4)
         return HStack(spacing: 4) {
             ForEach(0..<t.count, id: \.self) { k in
                 let given = k == 0 || k == t.count - 1 || t[k] == " " || t[k] == "-"
@@ -1129,7 +1137,7 @@ struct SpellingQuestion: View {
                     .foregroundStyle(wrong ? Color.themeAccent : k < typed.count || checked != nil ? Color.primary : Color.secondary)
                     .frame(width: side, height: side * 1.2)
                     .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color(.tertiarySystemFill)))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil ? Color.themeAccent : .clear, lineWidth: 2))
+                    .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil && typing ? Color.themeAccent : .clear, lineWidth: 2))
             }
         }
         .frame(maxWidth: .infinity)
@@ -1186,11 +1194,13 @@ struct SpellingField: UIViewRepresentable {
     let placeholder: String
     @Binding var text: String
     @Binding var focused: Bool
+    var maxLength = Int.max
     var onSubmit: () -> Void
 
     func makeUIView(context: Context) -> UITextField {
         let f = UITextField()
         f.placeholder = placeholder
+        if placeholder.isEmpty { f.textColor = .clear; f.tintColor = .clear }   // hidden behind the letter boxes
         f.font = UIFontMetrics(forTextStyle: .title3).scaledFont(for: .monospacedSystemFont(ofSize: 20, weight: .semibold))
         f.adjustsFontForContentSizeCategory = true
         f.autocapitalizationType = .none
@@ -1224,7 +1234,11 @@ struct SpellingField: UIViewRepresentable {
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: SpellingField
         init(_ p: SpellingField) { parent = p }
-        @objc func changed(_ f: UITextField) { parent.text = f.text ?? "" }
+        @objc func changed(_ f: UITextField) {
+            var t = f.text ?? ""
+            if t.count > parent.maxLength { t = String(t.prefix(parent.maxLength)); f.text = t }   // one letter per box
+            parent.text = t
+        }
         func textFieldDidBeginEditing(_ f: UITextField) { if !parent.focused { parent.focused = true } }
         func textFieldDidEndEditing(_ f: UITextField) { if parent.focused { parent.focused = false } }
         func textFieldShouldReturn(_ f: UITextField) -> Bool { parent.onSubmit(); return false }

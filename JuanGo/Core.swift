@@ -523,6 +523,18 @@ struct ChoiceTileStyle: PrimitiveButtonStyle {
     /// Latest request while the voice is still loading (only the newest one is spoken).
     private static var pending: (text: String, rate: Double?)?
 
+    /// Dictionary shorthand read out as words: "harm to sth" → "harm to something" (the voice spelled out S-T-H).
+    static func spoken(_ text: String) -> String {
+        let words: [(String, String)] = [("sb's", "somebody's"), ("sth's", "something's"), ("sb", "somebody"), ("sth", "something"),
+                                         ("smb", "somebody"), ("smth", "something"), ("etc", "et cetera")]
+        var t = text
+        for (short, long) in words {
+            t = t.replacingOccurrences(of: "\\b" + NSRegularExpression.escapedPattern(for: short) + "\\b\\.?",
+                                       with: long, options: [.regularExpression, .caseInsensitive])
+        }
+        return t
+    }
+
     static func say(_ text: String, rate: Double? = nil) {
         guard !text.isEmpty else { return }
         guard voice != nil else {
@@ -544,7 +556,7 @@ struct ChoiceTileStyle: PrimitiveButtonStyle {
             return
         }
         synth.stopSpeaking(at: .immediate)
-        let u = AVSpeechUtterance(string: text)
+        let u = AVSpeechUtterance(string: spoken(text))
         u.voice = voice
         u.rate = Float(rate ?? AppSettings.shared.speechRate)
         synth.speak(u)

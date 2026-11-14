@@ -84,11 +84,12 @@
 				};
 			};
 			buildConfigurationList = 4B000000000000000000000A /* Build configuration list for PBXProject "JuanGo" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hant";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hant",
 			);
 			mainGroup = 4B0000000000000000000003;
 			minimizedProjectReferenceProxies = 1;
