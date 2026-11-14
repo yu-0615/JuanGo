@@ -1176,7 +1176,8 @@ struct SpellingQuestion: View {
 
     private func box(_ k: Int, t: [Character], side: CGFloat, wrong: Bool) -> some View {
         let typed = Array(text)
-        let given = k == 0 || k == t.count - 1 || t[k] == "-"
+        // hyphens, apostrophes and dots are shown like the first and last letter (T-shirt, o'clock, Mr.)
+        let given = k == 0 || k == t.count - 1 || "-'’.".contains(t[k])
         // once checked, the boxes spell the answer, with the letters typed wrong in red
         let ch: String = checked != nil ? String(t[k]) : k < typed.count ? String(typed[k]) : (given ? String(t[k]) : "")
         return Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
