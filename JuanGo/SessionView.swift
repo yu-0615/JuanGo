@@ -143,7 +143,13 @@ struct RulesSheet: View {
                     rule("questionmark.circle", "不確定", "明天再複習一次。")
                     rule("hand.tap", "點一下：看解釋", "卡片會翻到解釋面。")
                     rule("heart", "愛心：加入喜歡", "喜歡的單字會進入「喜歡」清單。")
-                    rule("arrow.uturn.backward", "撤銷", "復原上一個答案。")
+                    rule("arrow.uturn.backward", "復原", "收回上一個答案。")
+                }
+                Section("選擇題與拼字") {
+                    rule("questionmark.circle", "不知道", "直接看答案，算作不會；比用猜的更準。")
+                    rule("lightbulb", "提示", "拼字時補上下一個字母。用了提示答對算不確定。")
+                    rule("tortoise", "慢速再聽", "聽力題用較慢的速度再念一次。")
+                    rule("exclamationmark.circle", "差一點", "拼錯一個字母算不確定，不算不會。")
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("學習規則").navigationBarTitleDisplayMode(.inline)
