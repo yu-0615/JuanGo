@@ -54,6 +54,9 @@ struct StudyTab: View {
                     listRow("我的單字", icon: "character.book.closed.fill", words: words.filter(\.inMyWords))
                     listRow("喜歡", icon: "heart.fill", words: words.filter(\.favorite))
                     ForEach(lists) { l in listRow(l.name, icon: "folder.fill", words: l.words) }
+                    // made from the log: the words to go over again, without building a list by hand
+                    let missed = recentlyMissed()
+                    if !missed.isEmpty { listRow("最近答錯", icon: "exclamationmark.circle.fill", words: missed) }
                 }
                 Section { MasteryCard(distribution: Stats(logs: [], words: h.studyable).distribution, boxed: false) }
                 Section {
@@ -85,6 +88,18 @@ struct StudyTab: View {
     }
 
     private var newLeft: Int { max(0, settings.dailyGoal - stats.newToday) }
+
+    /// Words whose latest answer in the past two weeks was 不會 (the logs come newest first).
+    private func recentlyMissed() -> [Word] {
+        let since = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
+        var latest: [String: Int] = [:]
+        for l in logs {
+            if l.date < since { break }
+            if latest[l.term] == nil { latest[l.term] = l.result }
+        }
+        let missed = Set(latest.filter { $0.value == Grade.again.rawValue }.keys)
+        return missed.isEmpty ? [] : words.filter { missed.contains($0.term) }
+    }
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
