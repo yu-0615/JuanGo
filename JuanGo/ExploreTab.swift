@@ -13,7 +13,6 @@ struct ExploreTab: View {
     @State private var current: String?
     @State private var lookup: LookupTerm?
     @State private var listTarget: DictEntry?
-    @State private var showSettings = false
     @State private var tipStep = 0
 
     var body: some View {
@@ -57,7 +56,6 @@ struct ExploreTab: View {
                         settings.muted.toggle()
                     }
                     filterMenu
-                    Button("設定", pulso: "slider.horizontal.3") { showSettings = true }
                 }
             }
             .onAppear {
@@ -77,7 +75,6 @@ struct ExploreTab: View {
             }
             .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
             .sheet(item: $listTarget) { e in AddToListSheet { list in Library.add(e, to: list, myWords: list == nil || isSaved(e), in: ctx) } }
-            .sheet(isPresented: $showSettings) { SettingsView() }
         }
     }
 

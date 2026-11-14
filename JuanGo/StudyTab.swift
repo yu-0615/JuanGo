@@ -12,7 +12,6 @@ struct StudyTab: View {
 
     @State private var flow: StudyRequest?
     @State private var showHistory = false
-    @State private var showSettings = false
     /// Switches to the Explore tab when the daily goal needs more words than are saved.
     var onFindWords: () -> Void = {}
 
@@ -61,9 +60,6 @@ struct StudyTab: View {
             .listStyle(.insetGrouped)
             .navigationTitle("主頁")
             .themedBackground()
-            .toolbar {
-                ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } }
-            }
             .fullScreenCover(item: $flow) { StudyFlow(request: $0) }
             #if DEBUG
             .task {   // simulator testing: SIMCTL_CHILD_JUANGO_STUDY=setup | q:英翻中 | summary | streak
@@ -73,7 +69,6 @@ struct StudyTab: View {
             }
             #endif
             .sheet(isPresented: $showHistory) { HistoryView(logs: logs) }
-            .sheet(isPresented: $showSettings) { SettingsView() }
         }
     }
 
@@ -790,7 +785,8 @@ struct FlashcardQuestion: View {
                 Spacer()
                 Button { word.favorite.toggle(); try? ctx.save() } label: { LIcon(word.favorite ? "heart.fill" : "heart") }
                     .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
-                Button { Speech.say(word.term) } label: { LIcon("speaker.wave.2.fill") }.foregroundStyle(.tint)
+                    .accessibilityLabel(word.favorite ? "取消喜歡" : "喜歡")
+                // no speaker here: the one beside the phonetics on the card already says the word
             }
             .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 6)

@@ -18,7 +18,6 @@ struct ImportTab: View {
     @State private var detail: Word?
     @State private var destination: WordList?
     @State private var toast: String?
-    @State private var showSettings = false
     @State private var photoItem: PhotosPickerItem?
     @State private var showPhotoPicker = false
     @State private var showCamera = false
@@ -67,7 +66,6 @@ struct ImportTab: View {
             }
             .overlay { if busy { ProgressView("正在辨識文字…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: Radius.lg)) } }
             .navigationTitle("新增")
-            .toolbar { ToolbarItem { Button("設定", pulso: "slider.horizontal.3") { showSettings = true } } }
             .themedBackground()
             .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
             .sheet(item: $lookup) { item in
@@ -76,7 +74,6 @@ struct ImportTab: View {
                     withAnimation { toast = destination.map { "已加入「\($0.name)」" } ?? "已加入我的單字" }
                 }
             }
-            .sheet(isPresented: $showSettings) { SettingsView() }
             .backupImport($sharedFile, ctx: ctx) { r in withAnimation { toast = r } }
             .alert("輸入分享代碼", isPresented: $askCode) {
                 TextField("例如 K7Q3-P9XM", text: $codeInput).textInputAutocapitalization(.characters).autocorrectionDisabled()

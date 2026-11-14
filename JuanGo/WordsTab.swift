@@ -10,14 +10,10 @@ struct WordsTab: View {
     @State private var segment = 0
     @State private var search = ""
     @State private var sort = WordSort.newest
-    @State private var addTerm = ""
-    @State private var showAdd = false
-    @State private var lookup: LookupTerm?
     @State private var selecting = false
     @State private var selection = Set<PersistentIdentifier>()
     @State private var newList = false
     @State private var newListName = ""
-    @State private var showSettings = false
     @State private var moveSheet = false
     @State private var debugWord: Word?
     @State private var confirmMerge = false
@@ -49,13 +45,11 @@ struct WordsTab: View {
                             Picker("排序", selection: $sort) { ForEach(WordSort.allCases, id: \.self) { Text($0.rawValue).tag($0) } }
                         } label: { Label("排序", pulso: "arrow.up.arrow.down") }
                     }
-                    Button("新增單字", pulso: "plus") { showAdd = true }
                     if segment == 0 {
                         Button(selecting ? "完成" : "選取", pulso: selecting ? "checkmark" : "checklist") {
                             selecting.toggle(); selection = []
                         }
                     }
-                    Button("設定", pulso: "slider.horizontal.3") { showSettings = true }
                 }
                 if selecting && !selection.isEmpty {
                     ToolbarItemGroup(placement: .bottomBar) {
@@ -71,11 +65,6 @@ struct WordsTab: View {
                 if let t = ProcessInfo.processInfo.environment["JUANGO_WORD"] { debugWord = words.first { $0.term == t } }
             }
             .navigationDestination(for: ListRoute.self) { ListWordsView(route: $0) }
-            .alert("新增單字", isPresented: $showAdd) {
-                TextField("輸入英文單字", text: $addTerm).textInputAutocapitalization(.never)
-                Button("查詢") { if !addTerm.isEmpty { lookup = LookupTerm(term: addTerm.lowercased()) }; addTerm = "" }
-                Button("取消", role: .cancel) { addTerm = "" }
-            }
             .alert("建立新清單", isPresented: $newList) {
                 TextField("清單名稱", text: $newListName)
                 Button("建立") {
@@ -85,8 +74,6 @@ struct WordsTab: View {
                 }
                 Button("取消", role: .cancel) { newListName = "" }
             }
-            .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
-            .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $moveSheet) {
                 AddToListSheet { list in
                     for w in words where selection.contains(w.persistentModelID) {
