@@ -40,6 +40,20 @@ enum WordMatch {
         return out
     }
 
+    /// The word's own words grouped by the blanks a cloze leaves: "keep sth alive" → ["keep", "alive"],
+    /// "take sth into account" → ["take", "into account"], "harm to sth" → ["harm to"], "prevent" → ["prevent"].
+    nonisolated static func blankParts(for term: String) -> [String] {
+        var parts: [[String]] = [[]]
+        for (i, w) in term.split(separator: " ").map(String.init).enumerated() {
+            if i > 0 && placeholders.contains(w.lowercased()) {
+                if !parts[parts.count - 1].isEmpty { parts.append([]) }
+            } else {
+                parts[parts.count - 1].append(w)
+            }
+        }
+        return parts.filter { !$0.isEmpty }.map { $0.joined(separator: " ") }
+    }
+
     nonisolated static func found(_ term: String, in sentence: String) -> Bool {
         guard let p = pattern(for: term) else { return false }
         return sentence.range(of: p, options: [.regularExpression, .caseInsensitive]) != nil

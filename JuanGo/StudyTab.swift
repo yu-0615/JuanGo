@@ -921,7 +921,14 @@ struct ChoiceQuestion: View {
     @State private var lookup: LookupTerm?
 
     private var answersInZh: Bool { type == .enToZh || type == .listenZh }
-    private var correct: String { answersInZh ? word.primaryMeaning : word.term }
+    /// A cloze whose phrase leaves two blanks ("We need to ____ the project ____.") is answered the way exams
+    /// print it, one part per blank: "keep / alive", with every other option in the same shape.
+    private var splitParts: [String]? {
+        guard type == .cloze else { return nil }
+        let p = WordMatch.blankParts(for: word.term)
+        return p.count >= 2 ? p : nil
+    }
+    private var correct: String { answersInZh ? word.primaryMeaning : splitParts?.joined(separator: " / ") ?? word.term }
 
     /// Prompt on the page, then four lettered answer rows; undo and ♡ sit in a slim bar at the bottom.
     var body: some View {
@@ -1027,7 +1034,41 @@ struct ChoiceQuestion: View {
         }
     }
 
+    /// Options for a two-blank cloze: other phrases that also split into that many parts, then made-up ones
+    /// with every part swapped for a dictionary word of the same part of speech and similar length.
+    private func splitOptions(_ parts: [String]) -> [String] {
+        let library = (try? ctx.fetch(FetchDescriptor<Word>())) ?? []
+        let phrases = Set((library.map(\.term) + Dictionary_.all.map(\.w))
+            .filter { $0 != word.term && $0.contains(" ") && GlossaryParser.cleanTerm($0) == $0 })
+        var picks: [String] = []
+        for p in phrases.shuffled() {
+            let ps = WordMatch.blankParts(for: p)
+            let v = ps.joined(separator: " / ")
+            if ps.count == parts.count, v != correct, !picks.contains(v) { picks.append(v) }
+            if picks.count == 3 { break }
+        }
+        func lookalike(_ part: String) -> String {
+            part.split(separator: " ").map { w in
+                let w = String(w), pos = Dictionary_.lookup(w)?.pos ?? ""
+                let pool = (Dictionary_.byPos[pos] ?? []).filter { !$0.w.contains(" ") && $0.w != w && abs($0.w.count - w.count) <= 2 }
+                // common words (levels 1–3) look like real exam distractors; rare ones (wistful) give it away
+                let common = pool.filter { ["1", "2", "3"].contains($0.lv) }
+                return (common.isEmpty ? pool : common).randomElement()?.w ?? w
+            }.joined(separator: " ")
+        }
+        var tries = 0
+        while picks.count < 3 && tries < 40 {
+            tries += 1
+            let fake = parts.map(lookalike)
+            let v = fake.joined(separator: " / ")
+            // every part different, so no option is half right
+            if zip(fake, parts).allSatisfy({ $0.0 != $0.1 }), v != correct, !picks.contains(v) { picks.append(v) }
+        }
+        return (picks + [correct]).shuffled()
+    }
+
     private func makeOptions() -> [String] {
+        if let parts = splitParts { return splitOptions(parts) }
         // Distractors come from same-part-of-speech dictionary words plus the user's own; a small random sample
         // is enough (mapping all 10k dictionary entries on every question made the card transition stutter).
         // fetched once here rather than kept live with @Query, which re-rendered the question on every save
