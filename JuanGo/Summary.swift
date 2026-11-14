@@ -63,6 +63,8 @@ struct SummaryView: View {
     let results: [RoundResult]
     var onAgain: () -> Void
     var onDone: () -> Void
+    /// Starts another round with only the given words (the ones missed this round).
+    var onRetry: ([Word]) -> Void = { _ in }
     @Environment(AppSettings.self) private var settings
     @State fileprivate var detail: Word?
 
@@ -156,6 +158,13 @@ extension SummaryView {
                 }
                 .buttonStyle(.plain)
                 if r.id != sorted.last?.id { Divider() }
+            }
+            // practising just the missed words again is the usual next step; 再練一輪 redoes the whole list
+            let missed = results.filter { $0.grade == .again }.map(\.word)
+            if !missed.isEmpty {
+                Button { onRetry(missed) } label: { Label("只練答錯的 \(missed.count) 個字", pulso: "arrow.counterclockwise") }
+                    .buttonStyle(PillButtonStyle(height: 44))
+                    .padding(.top, 4)
             }
         }
         .card()

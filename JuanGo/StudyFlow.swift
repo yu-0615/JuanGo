@@ -42,7 +42,8 @@ struct StudyFlow: View {
                 StreakView(stats: endStats ?? currentStats()) { phase = .summary }
             case .summary:
                 SummaryView(stats: endStats ?? currentStats(), roundCount: lastRound, results: lastResults,
-                            onAgain: { order = StudyRequest(title: request.title, words: request.words.shuffled()); phase = .setup }, onDone: { dismiss() })
+                            onAgain: { order = StudyRequest(title: request.title, words: request.words.shuffled()); phase = .setup }, onDone: { dismiss() },
+                            onRetry: { order = StudyRequest(title: "答錯的字", words: $0.shuffled()); phase = .setup })
             }
         }
         .animation(.easeInOut, value: phase)
