@@ -274,6 +274,8 @@ extension Word {
         words.map { w in
             var t = types?.randomElement() ?? QType.smart(for: w, listening: listening)
             if t == .cloze, w.clozeSentence == nil { t = .zhToEn }   // nothing to blank out in this word's example
+            // the voice says "something" for sth, so a phrase with sth/sb can't be spelled from hearing it
+            if t == .listenSpell, Speech.spoken(w.term) != w.term { t = .spelling }
             return Item(word: w, type: t)
         }
     }
@@ -379,7 +381,12 @@ struct StudyFlow: View {
         .task {
             guard let m = ProcessInfo.processInfo.environment["JUANGO_STUDY"] else { return }
             if m.hasPrefix("q:") {
-                engine = SessionEngine(words: request.words, types: QType(rawValue: String(m.dropFirst(2))).map { [$0] }, listening: false)
+                // JUANGO_FIRST=<term> puts that word first, to look at one word's question
+                var words = request.words
+                if let f = ProcessInfo.processInfo.environment["JUANGO_FIRST"], let w = Library.word(f, in: ctx) {
+                    words = [w] + words.filter { $0.term != w.term }
+                }
+                engine = SessionEngine(words: words, types: QType(rawValue: String(m.dropFirst(2))).map { [$0] }, listening: false)
                 phase = .running
             } else if m == "summary" { lastRound = 2; phase = .summary }
             else if m == "streak" { phase = .streak }
@@ -1048,7 +1055,7 @@ struct SpellingQuestion: View {
     @State private var nearMiss = false
     @State private var typing = false
 
-    /// The meaning on top, one box per letter (first and last letter shown), then a plain text field.
+    /// The meaning on top, then one box per letter (first and last letter shown) that the answer is typed into.
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(spacing: 10) {
@@ -1119,24 +1126,49 @@ struct SpellingQuestion: View {
     }
 
     /// One box per letter; typed letters fill in as you go.
+    /// One box per letter. A phrase wraps word by word onto more rows instead of shrinking every box to fit
+    /// one line ("take sth into account" made 12-point boxes); the spaces between words aren't boxes.
     private var letterBoxes: some View {
-        let t = Array(word.term), typed = Array(text)
+        let t = Array(word.term)
         let matched = checked != nil ? Self.matchedLetters(of: word.term, in: text) : []
-        let side = min(40, (UIScreen.main.bounds.width - 40) / CGFloat(max(1, t.count)) - 4)
-        return HStack(spacing: 4) {
-            ForEach(0..<t.count, id: \.self) { k in
-                let given = k == 0 || k == t.count - 1 || t[k] == " " || t[k] == "-"
-                // once checked, the boxes spell the answer, with the letters typed wrong in red
-                let ch: String = checked != nil ? String(t[k]) : k < typed.count ? String(typed[k]) : (given ? String(t[k]) : "")
-                let wrong = checked != nil && !matched.contains(k)
-                Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
-                    .foregroundStyle(wrong ? Color.themeAccent : k < typed.count || checked != nil ? Color.primary : Color.secondary)
-                    .frame(width: side, height: side * 1.2)
-                    .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color(.tertiarySystemFill)))
-                    .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil && typing ? Color.themeAccent : .clear, lineWidth: 2))
+        let width = UIScreen.main.bounds.width - 40
+        // index ranges of the words, split at spaces
+        var words: [Range<Int>] = [], from = 0
+        for k in 0...t.count where k == t.count || t[k] == " " {
+            if k > from { words.append(from..<k) }
+            from = k + 1
+        }
+        let longest = words.map(\.count).max() ?? 1
+        let side = max(22, min(40, width / CGFloat(longest) - 4))
+        let gap = side * 0.5
+        var rows: [[Range<Int>]] = [], used: CGFloat = 0
+        for w in words {
+            let need = CGFloat(w.count) * (side + 4)
+            if let last = rows.indices.last, used + gap + need <= width { rows[last].append(w); used += gap + need }
+            else { rows.append([w]); used = need }
+        }
+        return VStack(spacing: 8) {
+            ForEach(rows.indices, id: \.self) { r in
+                HStack(spacing: gap) {
+                    ForEach(rows[r], id: \.lowerBound) { w in
+                        HStack(spacing: 4) { ForEach(Array(w), id: \.self) { k in box(k, t: t, side: side, wrong: checked != nil && !matched.contains(k)) } }
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func box(_ k: Int, t: [Character], side: CGFloat, wrong: Bool) -> some View {
+        let typed = Array(text)
+        let given = k == 0 || k == t.count - 1 || t[k] == "-"
+        // once checked, the boxes spell the answer, with the letters typed wrong in red
+        let ch: String = checked != nil ? String(t[k]) : k < typed.count ? String(typed[k]) : (given ? String(t[k]) : "")
+        return Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
+            .foregroundStyle(wrong ? Color.themeAccent : k < typed.count || checked != nil ? Color.primary : Color.secondary)
+            .frame(width: side, height: side * 1.2)
+            .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color(.tertiarySystemFill)))
+            .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil && typing ? Color.themeAccent : .clear, lineWidth: 2))
     }
 
     private func check() {

@@ -526,8 +526,13 @@ struct ChoiceTileStyle: PrimitiveButtonStyle {
     /// Dictionary shorthand read out as words: "harm to sth" → "harm to something" (the voice spelled out S-T-H).
     static func spoken(_ text: String) -> String {
         let words: [(String, String)] = [("sb's", "somebody's"), ("sth's", "something's"), ("sb", "somebody"), ("sth", "something"),
-                                         ("smb", "somebody"), ("smth", "something"), ("etc", "et cetera")]
-        var t = text
+                                         ("smb", "somebody"), ("smth", "something"), ("etc", "et cetera"),
+                                         ("e.g", "for example"), ("i.e", "that is")]
+        // In a dictionary phrase "/" means or (sb/sth, good at/in); the voice said "slash". Sentences keep theirs (km/h).
+        var t = text.split(separator: " ").count <= 6 && text.rangeOfCharacter(from: .decimalDigits) == nil
+            ? text.replacingOccurrences(of: #"(?<=\w)\s*/\s*(?=\w)"#, with: " or ", options: .regularExpression) : text
+        t = t
+            .replacingOccurrences(of: #"\s*(~|…|\.{3})\s*"#, with: " ", options: .regularExpression)     // be ~ of, be … of: a gap, not "tilde"
         for (short, long) in words {
             t = t.replacingOccurrences(of: "\\b" + NSRegularExpression.escapedPattern(for: short) + "\\b\\.?",
                                        with: long, options: [.regularExpression, .caseInsensitive])
