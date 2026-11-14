@@ -261,7 +261,7 @@ enum QType: String, CaseIterable, Identifiable {
         self.endless = endless
         queue = []
         total = words.count
-        queue = draw(words.shuffled())
+        queue = draw(words)   // already in a random order (StudyFlow shuffles once, so prefetching matches the cards)
     }
 
     private func draw(_ words: [Word]) -> [Item] {
@@ -326,8 +326,6 @@ struct StudyFlow: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.modelContext) private var ctx
     @Environment(\.dismiss) private var dismiss
-    @Query private var allWords: [Word]
-    @Query private var logs: [ReviewLog]
 
     enum Phase { case setup, running, streak, summary }
     @State private var phase = Phase.setup
@@ -335,14 +333,21 @@ struct StudyFlow: View {
     @State private var studiedBefore = false
     @State private var lastRound = 0
     @State private var lastResults: [RoundResult] = []
+    /// The request's words shuffled once: the setup's random draw, the card order and the example prefetch all use it.
+    @State private var order: StudyRequest
+
+    init(request: StudyRequest) {
+        self.request = request
+        _order = State(initialValue: StudyRequest(title: request.title, words: request.words.shuffled()))
+    }
 
     var body: some View {
         ZStack {
             settings.theme.background.ignoresSafeArea()
             switch phase {
             case .setup:
-                SessionSetupView(request: request, onClose: { dismiss() }) { words, types, listening, endless in
-                    studiedBefore = Stats(logs: logs, words: []).studiedToday > 0
+                SessionSetupView(request: order, onClose: { dismiss() }) { words, types, listening, endless in
+                    studiedBefore = Stats(logs: fetchLogs(), words: []).studiedToday > 0
                     engine = SessionEngine(words: words, types: types, listening: listening, endless: endless)
                     phase = .running
                 }
@@ -352,13 +357,15 @@ struct StudyFlow: View {
                         .onChange(of: engine.current == nil) { _, ended in if ended { finish(engine) } }
                 }
             case .streak:
-                StreakView(stats: Stats(logs: logs, words: allWords)) { phase = .summary }
+                StreakView(stats: endStats ?? currentStats()) { phase = .summary }
             case .summary:
-                SummaryView(stats: Stats(logs: logs, words: allWords), roundCount: lastRound, results: lastResults,
-                            onAgain: { phase = .setup }, onDone: { dismiss() })
+                SummaryView(stats: endStats ?? currentStats(), roundCount: lastRound, results: lastResults,
+                            onAgain: { order = StudyRequest(title: request.title, words: request.words.shuffled()); phase = .setup }, onDone: { dismiss() })
             }
         }
         .animation(.easeInOut, value: phase)
+        // start writing example sentences while the round is being set up, so the first cards already have them
+        .onAppear { ExampleStore.shared.prepare(Array(order.words.prefix(6))) }
         #if DEBUG
         .task {
             guard let m = ProcessInfo.processInfo.environment["JUANGO_STUDY"] else { return }
@@ -371,7 +378,14 @@ struct StudyFlow: View {
         #endif
     }
 
+    /// Fetched when a round ends instead of kept live with @Query: a live query re-fetched every word and log
+    /// on each answer (and each example sentence saved) and re-rendered the whole round.
+    @State private var endStats: Stats?
+    private func fetchLogs() -> [ReviewLog] { (try? ctx.fetch(FetchDescriptor<ReviewLog>())) ?? [] }
+    private func currentStats() -> Stats { Stats(logs: fetchLogs(), words: (try? ctx.fetch(FetchDescriptor<Word>())) ?? []) }
+
     private func finish(_ engine: SessionEngine) {
+        endStats = currentStats()
         lastRound = engine.done.count
         lastResults = engine.results
         guard lastRound > 0 else { dismiss(); return }
@@ -449,8 +463,15 @@ struct SessionSetupView: View {
         }
         .padding(.horizontal, 18)
         .onChange(of: limit, initial: true) { _, n in
-            drawn = n > 0 ? Array(request.words.shuffled().prefix(n)) : []
+            drawn = n > 0 ? Array(request.words.prefix(n)) : []   // the words are already shuffled
         }
+        #if DEBUG
+        .task {   // device testing: JUANGO_AUTOSTART=1 presses 開始練習 after a moment, like a tap
+            guard ProcessInfo.processInfo.environment["JUANGO_AUTOSTART"] != nil else { return }
+            try? await Task.sleep(for: .seconds(2))
+            onStart(endless ? request.words : words, smart ? nil : Array(types), listening, endless)
+        }
+        #endif
     }
 
     private var drawLabel: String {
@@ -594,6 +615,10 @@ struct SessionView: View {
         }
         .padding(.horizontal, 18)
         .animation(.spring(duration: 0.35), value: engine.pos)
+        // the card on screen first, then the next few, so their example sentences are ready when they come up
+        .onChange(of: engine.pos, initial: true) { _, p in
+            ExampleStore.shared.prepare(engine.queue.dropFirst(p).prefix(4).map(\.word))
+        }
         .sensoryFeedback(.impact(weight: .light), trigger: gradeTick) { _, _ in settings.haptics }
         .onAppear { if !settings.studyRulesSeen { showRules = true; settings.studyRulesSeen = true } }
         .sheet(isPresented: $showRules) { RulesSheet() }
@@ -615,10 +640,23 @@ struct SessionView: View {
             }
             .frame(maxWidth: .infinity)
         } else {
-            // One segment per word; finished words fill in.
-            HStack(spacing: 3) {
-                ForEach(0..<max(1, engine.total), id: \.self) { i in
-                    Capsule().fill(i < engine.done.count ? Color.themeAccent : Color.secondary.opacity(0.18))
+            // One segment per word for a short round; a long one (a whole list of hundreds of words) gets a plain
+            // bar instead, because a segment and a 3 pt gap per word pushed the track wider than the screen.
+            Group {
+                if engine.total <= 30 {
+                    HStack(spacing: 3) {
+                        ForEach(0..<max(1, engine.total), id: \.self) { i in
+                            Capsule().fill(i < engine.done.count ? Color.themeAccent : Color.secondary.opacity(0.18))
+                        }
+                    }
+                } else {
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.secondary.opacity(0.18))
+                            Capsule().fill(Color.themeAccent)
+                                .frame(width: g.size.width * CGFloat(engine.done.count) / CGFloat(max(1, engine.total)))
+                        }
+                    }
                 }
             }
             .frame(height: 6)
@@ -666,19 +704,19 @@ struct GradeButtons: View {
     var onGrade: (Grade) -> Void
     var body: some View {
         HStack(spacing: 10) {
-            tile("不會", "xmark", .againPink, .again)
-            tile("不確定", "questionmark", .unsureYellow, .unsure)
-            tile("會", "checkmark", .knowGreen, .good)
+            tile("不會", "xmark", .againPink, .againInk, .again)
+            tile("不確定", "questionmark", .unsureYellow, .unsureInk, .unsure)
+            tile("會", "checkmark", .knowGreen, .knowInk, .good)
         }
     }
-    private func tile(_ t: String, _ icon: String, _ fill: Color, _ g: Grade) -> some View {
+    private func tile(_ t: String, _ icon: String, _ fill: Color, _ ink: Color, _ g: Grade) -> some View {
         Button { onGrade(g) } label: {
             VStack(spacing: 4) {
                 LIcon(icon).font(.app(.title3, .bold))
                 Text(t).font(.app(.subheadline, .bold))
             }
         }
-        .buttonStyle(PillButtonStyle(fill: fill, height: 66))
+        .buttonStyle(PillButtonStyle(fill: fill, foreground: ink, height: 66))
     }
 }
 
@@ -779,6 +817,21 @@ struct FlashcardQuestion: View {
                     Text("也有：" + word.meanings.dropFirst().prefix(3).joined(separator: "、")).font(.app(.subheadline)).foregroundStyle(.secondary)
                 }
             }
+            exampleBlock(back: back)
+                // room for a two-line sentence and its translation, kept even while it is being written,
+                // so the headword above doesn't jump when the on-device model finishes
+                .frame(minHeight: back ? 0 : 118, alignment: .topLeading)
+            Spacer(minLength: 0)
+            if back {
+                Button { onDetail() } label: { Label("完整單字頁", pulso: "arrow.up.right") }.font(.app(.subheadline, .bold))
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
+    }
+
+    @ViewBuilder private func exampleBlock(back: Bool) -> some View {
             if !word.example.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     TappableSentence(sentence: word.example, highlight: word.term, font: .app(.body, .medium)) { lookup = LookupTerm(term: $0) }
@@ -788,17 +841,25 @@ struct FlashcardQuestion: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
                 .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
+            } else if ExampleStore.shared.isGenerating(word) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let p = ExampleStore.shared.partial(for: word) {
+                        // the sentence as the on-device model writes it; it becomes tappable once finished
+                        Text(p.en).font(.app(.body, .medium))
+                        if back && settings.showTranslation && !p.zh.isEmpty { Text(p.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+                    } else {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("正在寫例句…").font(.app(.subheadline)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
             } else if back && !word.definition.isEmpty {
                 Text(word.definition).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(3)
             }
-            Spacer(minLength: 0)
-            if back {
-                Button { onDetail() } label: { Label("完整單字頁", pulso: "arrow.up.right") }.font(.app(.subheadline, .bold))
-            }
-        }
-        .padding(22)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
     }
 }
 

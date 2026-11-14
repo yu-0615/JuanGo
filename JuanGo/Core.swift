@@ -440,6 +440,10 @@ extension Color {
     static var cardFill: Color { AppSettings.shared.theme.section }
     static let knowGreen = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.17, green: 0.33, blue: 0.25, alpha: 1) : UIColor(red: 0.84, green: 0.92, blue: 0.86, alpha: 1) })
     static let unsureYellow = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.38, green: 0.29, blue: 0.13, alpha: 1) : UIColor(red: 0.98, green: 0.90, blue: 0.74, alpha: 1) })
+    /// Label colours for the three grade buttons: dark on the light pastels, light on the dark ones (4.5:1 or better).
+    static let knowInk = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.72, green: 0.92, blue: 0.78, alpha: 1) : UIColor(red: 0.10, green: 0.40, blue: 0.22, alpha: 1) })
+    static let unsureInk = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.98, green: 0.86, blue: 0.62, alpha: 1) : UIColor(red: 0.50, green: 0.33, blue: 0.02, alpha: 1) })
+    static let againInk = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.99, green: 0.78, blue: 0.78, alpha: 1) : UIColor(red: 0.66, green: 0.10, blue: 0.16, alpha: 1) })
     static let againPink = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(red: 0.40, green: 0.16, blue: 0.18, alpha: 1) : UIColor(red: 0.97, green: 0.85, blue: 0.84, alpha: 1) })
 }
 
@@ -528,6 +532,8 @@ struct ChoiceTileStyle: PrimitiveButtonStyle {
             pending = (text, rate)
             if !loading {
                 Task.detached(priority: .userInitiated) {
+                    // the audio session is set up once here, not on the main thread before every word
+                    try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
                     let v = AVSpeechSynthesisVoice(language: "en-US")
                     await MainActor.run {
                         voice = v ?? AVSpeechSynthesisVoice()
@@ -537,7 +543,6 @@ struct ChoiceTileStyle: PrimitiveButtonStyle {
             }
             return
         }
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: .duckOthers)
         synth.stopSpeaking(at: .immediate)
         let u = AVSpeechUtterance(string: text)
         u.voice = voice

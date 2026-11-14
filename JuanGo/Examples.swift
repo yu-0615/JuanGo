@@ -14,6 +14,8 @@ final class ExampleStore {
     struct Example: Codable, Hashable { var en: String; var zh: String }
 
     private(set) var cache: [String: Example]
+    /// The sentence being written right now, as far as the model has got (shown on the card while it streams in).
+    private(set) var partial: [String: Example] = [:]
     private var queue: [(e: DictEntry, key: String)] = []
     private var inFlight: String?
     private var failed: Set<String> = []
@@ -55,7 +57,32 @@ final class ExampleStore {
         var e = e; e.ex = c.en; e.exZh = c.zh; return e
     }
 
+    func partial(for w: Word) -> Example? { partial[Self.key(term: w.term, meanings: w.meanings)] }
+    func partial(for e: DictEntry) -> Example? { partial[e.w] }
+
     func isGenerating(_ e: DictEntry) -> Bool { inFlight == e.w || queue.contains { $0.key == e.w } }
+    func isGenerating(_ w: Word) -> Bool {
+        guard w.example.isEmpty else { return false }
+        let key = Self.key(term: w.term, meanings: w.meanings)
+        return inFlight == key || queue.contains { $0.key == key }
+    }
+
+    /// Practice calls this for the card on screen and the next few: the first one jumps the queue, the rest follow it,
+    /// so a sentence is usually written before its card comes up. Words that already have one are skipped.
+    func prepare(_ words: [Word]) {
+        for w in words.reversed() where w.example.isEmpty {
+            let key = Self.key(term: w.term, meanings: w.meanings)
+            if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
+            let e = key == w.term ? (Dictionary_.lookup(w.term) ?? Self.entry(for: w))
+                                  : Self.entry(for: w)
+            request(e, urgent: true, key: key)
+        }
+        warmUp()
+    }
+
+    private static func entry(for w: Word) -> DictEntry {
+        DictEntry(w: w.term, ipa: w.ipa, pos: w.pos, zh: w.meanings, def: w.definition, ex: "", exZh: "", lv: w.cefr)
+    }
 
     /// Queue a word; the newest requests go first so the card on screen is served before prefetches.
     func request(_ e: DictEntry, urgent: Bool = false, key: String? = nil) {
@@ -79,13 +106,38 @@ final class ExampleStore {
         try? words.first?.modelContext?.save()
     }
 
+    #if canImport(FoundationModels)
+    /// A session made and pre-loaded ahead of time, so the next sentence doesn't wait for the model to load.
+    @ObservationIgnored private var warm: LanguageModelSession?
+    #endif
+    private func warmUp() {
+        #if canImport(FoundationModels)
+        guard Self.isAvailable, warm == nil else { return }
+        let s = Self.makeSession()
+        s.prewarm()
+        warm = s
+        #endif
+    }
+
     private func pump() {
         guard inFlight == nil, !queue.isEmpty else { return }
         let (e, key) = queue.removeFirst()
         inFlight = key
+        #if canImport(FoundationModels)
+        let session = warm ?? Self.makeSession()
+        warm = nil
+        #endif
         Task {
-            let r = await Self.generate(e)
+            #if canImport(FoundationModels)
+            let r = await Self.generate(e, session: session) { p in
+                Task { @MainActor in if ExampleStore.shared.inFlight == key { ExampleStore.shared.partial[key] = p } }
+            }
+            if !queue.isEmpty { warmUp() }
+            #else
+            let r: Example? = nil
+            #endif
             inFlight = nil
+            partial[key] = nil
             if let r {
                 cache[key] = r
                 save()
@@ -111,26 +163,43 @@ final class ExampleStore {
         if let d = try? JSONEncoder().encode(cache) { try? d.write(to: Self.fileURL, options: .atomic) }
     }
 
-    nonisolated private static func generate(_ e: DictEntry) async -> Example? {
-        #if canImport(FoundationModels)
-        let session = LanguageModelSession(instructions: """
+    #if canImport(FoundationModels)
+    nonisolated private static func makeSession() -> LanguageModelSession {
+        LanguageModelSession(instructions: """
             You write example sentences for Taiwanese high-school students learning English vocabulary. \
             Each sentence is natural, everyday, 8 to 16 words long, and uses the target word in the given meaning. \
             The translation is fluent Traditional Chinese as used in Taiwan (never Simplified).
             """)
+    }
+
+    nonisolated private static func generate(_ e: DictEntry, session: LanguageModelSession,
+                                             onPartial: @escaping @Sendable (Example) -> Void) async -> Example? {
         let prompt = "Word: \(e.w)\nPart of speech: \(e.pos)\nMeaning: \(e.zh.prefix(3).joined(separator: "、"))\(e.def.isEmpty ? "" : " (\(e.def))")"
-        for _ in 0..<2 {
-            guard let r = try? await session.respond(to: prompt, generating: GeneratedExample.self).content else { continue }
-            let en = r.sentence.trimmingCharacters(in: .whitespacesAndNewlines)
-            let zh = r.translation.trimmingCharacters(in: .whitespacesAndNewlines)
+        for attempt in 0..<2 {
+            // greedy and capped: a short sentence comes back noticeably faster; the retry samples for a different one
+            let options = attempt == 0 ? GenerationOptions(sampling: .greedy, maximumResponseTokens: 160)
+                                       : GenerationOptions(maximumResponseTokens: 160)
+            let s = attempt == 0 ? session : makeSession()
+            // streamed, so the card can show the sentence word by word instead of a spinner for several seconds
+            let stream = s.streamResponse(to: prompt, generating: GeneratedExample.self, options: options)
+            var en = "", zh = ""
+            do {
+                for try await snap in stream {
+                    en = snap.content.sentence ?? en
+                    zh = snap.content.translation ?? zh
+                    if !en.isEmpty { onPartial(Example(en: en, zh: zh)) }
+                }
+            } catch { continue }
+            en = en.trimmingCharacters(in: .whitespacesAndNewlines)
+            zh = zh.trimmingCharacters(in: .whitespacesAndNewlines)
             // The sentence must really use the word (any inflection: stem of up to 5 letters).
             let stem = String(e.w.lowercased().prefix(max(3, min(5, e.w.count - 1))))
             guard en.lowercased().contains(stem), !zh.isEmpty, en.split(separator: " ").count <= 24 else { continue }
             return Example(en: en, zh: zh)
         }
-        #endif
         return nil
     }
+    #endif
 }
 
 #if canImport(FoundationModels)

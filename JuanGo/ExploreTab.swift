@@ -195,6 +195,10 @@ struct ExploreCard: View {
                 if let ex = examples.example(for: entry) {
                     TappableSentence(sentence: ex.en, highlight: entry.w, font: .app(.body, .medium), onTap: onLookup)
                     if settings.showTranslation { Text(ex.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+                } else if let p = examples.partial(for: entry) {
+                    // streaming in from the on-device model
+                    Text(p.en).font(.app(.body, .medium))
+                    if settings.showTranslation && !p.zh.isEmpty { Text(p.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
                 } else if examples.isGenerating(entry) {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("The teacher discussed the issue of recycling with the whole class.")
