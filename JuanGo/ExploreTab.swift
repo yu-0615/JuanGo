@@ -162,7 +162,9 @@ struct ExploreTab: View {
             pool = pool.filter { near.contains($0.lv) && !savedTerms.contains($0.w) }.shuffled()
                 + pool.filter { !near.contains($0.lv) }.shuffled()
         } else {
-            pool.shuffle()
+            // words not saved yet first: the point of exploring is finding new ones
+            let mine = Set(saved.filter(\.inMyWords).map(\.term))
+            pool = pool.filter { !mine.contains($0.w) }.shuffled() + pool.filter { mine.contains($0.w) }.shuffled()
         }
         #if DEBUG   // simulator testing: SIMCTL_CHILD_JUANGO_EXPLORE_FIRST=word puts that word's card first
         if let w = ProcessInfo.processInfo.environment["JUANGO_EXPLORE_FIRST"], let i = pool.firstIndex(where: { $0.w == w }) {
