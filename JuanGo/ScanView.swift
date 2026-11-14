@@ -60,7 +60,9 @@ enum PhotoScanner {
         let tokens = words.enumerated().map { i, w in
             ScanToken(id: i, text: w.text, rect: w.rect, entry: w.text.count >= 2 ? Dictionary_.lookup(w.text) : nil, context: used[i])
         }
-        return ScanResult(image: image, tokens: tokens, glossary: GlossaryParser.parse(rows: GlossaryParser.rows(from: lines)))
+        var glossary = GlossaryParser.parse(rows: GlossaryParser.rows(from: lines))
+        for i in glossary.indices { glossary[i].term = GlossaryParser.cleanTerm(glossary[i].term) }
+        return ScanResult(image: image, tokens: tokens, glossary: glossary)
     }
 
     /// Tags each word (given by its UTF-16 offset in `text`) with the part of speech it has in its sentence.

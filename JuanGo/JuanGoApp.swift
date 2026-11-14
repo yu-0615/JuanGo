@@ -101,19 +101,32 @@ struct MainTabs: View {
         .tabBarMinimizeBehavior(.never)   // the tab bar always stays full size
         .task {
             migrateLevels()
-            stripMeaningMarks()
+            tidyScannedWords()
             ExampleStore.shared.container = ctx.container
             ExampleStore.shared.backfill((try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.example == "" }))) ?? [])
         }
     }
 
     @Environment(\.modelContext) private var ctx
-    /// Word-list scans used to keep textbook level marks in the meanings ("藝術形式 *5"); clean those up once.
-    private func stripMeaningMarks() {
+    /// Word-list scans used to save OCR leftovers: level marks and legends in the meanings ("藝術形式 *5"),
+    /// half-width 、, cut-off brackets, and phonetics glued onto the word ("accuracy takjoresi"). Clean those up.
+    private func tidyScannedWords() {
         guard let words = try? ctx.fetch(FetchDescriptor<Word>()) else { return }
+        let terms = Set(words.map(\.term))
         var changed = false
-        for w in words where w.meanings.contains(where: { $0.range(of: "[*＊★☆※]", options: .regularExpression) != nil }) {
-            w.meanings = w.meanings.map(GlossaryParser.stripMarks).filter { !$0.isEmpty }
+        for w in words {
+            let meanings = w.meanings.map(GlossaryParser.tidy).filter { !$0.isEmpty }
+            if meanings != w.meanings { w.meanings = meanings; changed = true }
+            let fixed = GlossaryParser.cleanTerm(w.term)
+            guard fixed != w.term, !terms.contains(fixed) else { continue }
+            let old = w.term
+            w.term = fixed
+            for log in (try? ctx.fetch(FetchDescriptor<ReviewLog>(predicate: #Predicate { $0.term == old }))) ?? [] { log.term = fixed }
+            if let e = Dictionary_.lookup(fixed) {
+                if w.meanings.isEmpty { w.meanings = e.zh }
+                if w.ipa.isEmpty { w.ipa = e.ipa }
+                if w.pos.isEmpty { w.pos = e.pos }
+            }
             changed = true
         }
         if changed { try? ctx.save() }
