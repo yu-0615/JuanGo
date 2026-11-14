@@ -483,6 +483,9 @@ struct BadgeMedal: View {
             Text(kind.title).font(.app(.caption2, .semibold)).foregroundStyle(.secondary)
             Text("\(value) / \(kind.next(for: value))").font(.app(.caption, .bold)).monospacedDigit()
         }
+        // one element: "連續天數，第 1 級（共 5 級），1 / 3"
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(kind.title)，\(earned ? "第 \(tier) 級（共 \(kind.tiers.count) 級）" : "還沒達成")，\(value) / \(kind.next(for: value))")
     }
 }
 
