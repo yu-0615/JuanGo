@@ -437,9 +437,12 @@ struct WordDetailView: View {
     @State private var editing = false
     @State private var confirmDelete = false
 
-    private var related: [DictEntry] {
+    /// Picked once when the page opens: as a computed property it reshuffled on every redraw (tapping ♡,
+    /// showing the translation, an example saved in the background) and the chips changed under the finger.
+    @State private var related: [DictEntry] = []
+    private func pickRelated() {
         let saved = Set(library.map(\.term))
-        return Array(Dictionary_.entries(level: word.cefr).filter { $0.w != word.term && !saved.contains($0.w) }.shuffled().prefix(4))
+        related = Array(Dictionary_.entries(level: word.cefr).filter { $0.w != word.term && !saved.contains($0.w) }.shuffled().prefix(4))
     }
 
     var body: some View {
@@ -501,7 +504,7 @@ struct WordDetailView: View {
             .padding(.horizontal, 18).padding(.bottom, 30)
         }
         .themedBackground()
-        .onAppear { if AppSettings.shared.detailAutoSpeak { Speech.say(word.term) } }
+        .onAppear { if AppSettings.shared.detailAutoSpeak { Speech.say(word.term) }; if related.isEmpty { pickRelated() } }
         .toolbar {
             ToolbarItemGroup {
                 Button("加入清單", pulso: "folder") { showLists = true }
