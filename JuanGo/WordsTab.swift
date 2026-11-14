@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-enum WordSort: String, CaseIterable { case newest = "最新加入", oldest = "最早加入", alpha = "A → Z", level = "熟練度" }
+enum WordSort: String, CaseIterable { case newest = "最新加入", oldest = "最早加入", alpha = "A → Z", level = "熟練度", due = "下次複習" }
 
 struct WordsTab: View {
     @Environment(\.modelContext) private var ctx
@@ -72,6 +72,7 @@ struct WordsTab: View {
             .task {   // simulator testing: SIMCTL_CHILD_JUANGO_WORD=reduce opens that word's page
                 if let t = ProcessInfo.processInfo.environment["JUANGO_WORD"] { debugWord = words.first { $0.term == t } }
                 if let q = ProcessInfo.processInfo.environment["JUANGO_SEARCH"] { search = q }   // JUANGO_SEARCH=keep alive
+                if let v = ProcessInfo.processInfo.environment["JUANGO_SORT"].flatMap(WordSort.init(rawValue:)) { sort = v }   // JUANGO_SORT=下次複習
             }
             .navigationDestination(for: ListRoute.self) { ListWordsView(route: $0) }
             .alert("建立新清單", isPresented: $newList) {
@@ -111,6 +112,10 @@ struct WordsTab: View {
         case .oldest: ws.sort { $0.addedAt < $1.addedAt }
         case .alpha: ws.sort { $0.term.localizedCaseInsensitiveCompare($1.term) == .orderedAscending }   // "Monday" among the m's
         case .level: ws.sort { ($0.srsLevel, $0.term) < ($1.srsLevel, $1.term) }
+        case .due:   // soonest first; words not studied yet go last
+            ws.sort { (a: Word, b: Word) -> Bool in
+                (a.isNew ? 1 : 0, a.dueDate ?? .distantPast, a.term) < (b.isNew ? 1 : 0, b.dueDate ?? .distantPast, b.term)
+            }
         }
         return ws
     }
@@ -245,8 +250,10 @@ struct WordsTab: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background { NavigationLink(value: w) { EmptyView() }.opacity(0).disabled(selecting) }
-            if w.favorite { LIcon("heart.fill").font(.app(.caption)).foregroundStyle(Color.themeAccent) }
-            Text(levelNames[max(0, min(5, w.srsLevel))]).font(.app(.caption, .semibold)).foregroundStyle(.secondary)
+            if w.favorite { LIcon("heart.fill").font(.app(.caption)).foregroundStyle(Color.themeAccent).accessibilityLabel("喜歡") }
+            // sorted by 下次複習, the row says when rather than the level
+            Text(sort == .due && !w.isNew ? w.dueDate.map(dueText) ?? "已到期" : levelNames[max(0, min(5, w.srsLevel))])
+                .font(.app(.caption, .semibold)).foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
         .gesture(TapGesture().onEnded { toggleSel(w) }, isEnabled: selecting)
