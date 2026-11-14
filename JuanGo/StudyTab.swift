@@ -980,7 +980,7 @@ struct ChoiceQuestion: View {
         case .enToZh:
             Text(word.term).font(.app(size: 44, .bold)).lineLimit(1).minimumScaleFactor(0.5)
             HStack(spacing: 10) {
-                if !word.ipa.isEmpty { Text("[\(word.ipa)]").font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
+                if !word.ipa.isEmpty { Text("/\(word.ipa)/").font(.app(.footnote, .semibold)).foregroundStyle(.secondary) }
                 SpeakButton(text: word.term).font(.app(.footnote))
             }
         case .zhToEn:

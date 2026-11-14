@@ -168,7 +168,7 @@ struct WordConfirmSheet: View {
             }
             Text(entry?.w ?? term).font(.app(size: 40, .semibold)).minimumScaleFactor(0.5).lineLimit(1)
             HStack(spacing: 10) {
-                if let ipa = entry?.ipa, !ipa.isEmpty { Text("[\(ipa)]").foregroundStyle(.secondary) }
+                if let ipa = entry?.ipa, !ipa.isEmpty { Text("/\(ipa)/").foregroundStyle(.secondary) }
                 SpeakButton(text: entry?.w ?? term)
             }
             meaningPicker
