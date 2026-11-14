@@ -489,6 +489,9 @@ struct WordDetailView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text("例句").font(.app(.subheadline, .bold))
+                            Button { Speech.say(word.example) } label: { LIcon("speaker.wave.2.fill").font(.app(.subheadline)) }
+                                .buttonStyle(.borderless).foregroundStyle(.tint)
+                                .accessibilityLabel("念例句")
                             Spacer()
                             Button { withAnimation { showTranslation.toggle() } } label: {
                                 Label("翻譯", pulso: showTranslation ? "chevron.up" : "chevron.down").font(.app(.caption, .bold))
