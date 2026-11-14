@@ -42,9 +42,10 @@ import SwiftData
     private func draw(_ words: [Word]) -> [Item] {
         words.map { w in
             var t = types?.randomElement() ?? QType.smart(for: w, listening: listening)
+            // a phrase with sth / sb / … in it isn't spelled out letter by letter (nobody types "sth" in a test):
+            // it's asked as the exam asks it, a cloze with its blanks, or 中翻英 when the example can't be used
+            if t == .spelling || t == .listenSpell, WordMatch.blankParts(for: w.term).joined(separator: " ") != w.term { t = .cloze }
             if t == .cloze, w.clozeSentence == nil { t = .zhToEn }   // nothing to blank out in this word's example
-            // the voice says "something" for sth, so a phrase with sth/sb can't be spelled from hearing it
-            if t == .listenSpell, Speech.spoken(w.term) != w.term { t = .spelling }
             return Item(word: w, type: t)
         }
     }
