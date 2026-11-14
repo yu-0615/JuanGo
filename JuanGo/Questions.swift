@@ -196,7 +196,9 @@ struct ChoiceQuestion: View {
                             .frame(width: 30, height: 30)
                             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(picked == nil ? Color.themeAccent.opacity(0.1) : Color.primary.opacity(0.06)))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(o).font(.app(.headline)).lineLimit(1).minimumScaleFactor(0.7).foregroundStyle(.primary)
+                            // two lines before shrinking: a long Chinese meaning was cut off with …
+                            Text(o).font(.app(.headline)).lineLimit(2).minimumScaleFactor(0.8).foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
                             if picked == o, o != correct, let other = otherSide[o] {
                                 Text(other).font(.app(.subheadline, .semibold)).foregroundStyle(.secondary).lineLimit(1)
                             }
