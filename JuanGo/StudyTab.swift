@@ -220,9 +220,19 @@ enum QType: String, CaseIterable, Identifiable {
         case 0, 1: return .flashcard
         case 2: return listening && Bool.random() ? .listenZh : .enToZh
         case 3: return listening && Bool.random() ? .listenEn : .zhToEn
-        case 4: return w.example.lowercased().contains(w.term) ? .cloze : .zhToEn
+        case 4: return w.clozeSentence != nil ? .cloze : .zhToEn
         default: return listening && Bool.random() ? .listenSpell : .spelling
         }
+    }
+}
+
+extension Word {
+    /// The example with the word blanked out, or nil when the example doesn't contain it
+    /// (e.g. "machinery" in a sentence that says "machines").
+    var clozeSentence: String? {
+        guard let pattern = WordMatch.pattern(for: term),
+              example.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
+        return example.replacingOccurrences(of: pattern, with: "____", options: [.regularExpression, .caseInsensitive])
     }
 }
 
@@ -265,7 +275,11 @@ enum QType: String, CaseIterable, Identifiable {
     }
 
     private func draw(_ words: [Word]) -> [Item] {
-        words.map { w in Item(word: w, type: types?.randomElement() ?? QType.smart(for: w, listening: listening)) }
+        words.map { w in
+            var t = types?.randomElement() ?? QType.smart(for: w, listening: listening)
+            if t == .cloze, w.clozeSentence == nil { t = .zhToEn }   // nothing to blank out in this word's example
+            return Item(word: w, type: t)
+        }
     }
 
     /// Keeps an endless round going: when the last queued question is reached, deal the whole pool again,
@@ -953,10 +967,7 @@ struct ChoiceQuestion: View {
         }
     }
 
-    private var clozeSentence: String {
-        word.example.replacingOccurrences(of: "\\b\(NSRegularExpression.escapedPattern(for: word.term))\\w*", with: "____",
-                                          options: [.regularExpression, .caseInsensitive])
-    }
+    private var clozeSentence: String { word.clozeSentence ?? word.example }
 
     private func fill(for o: String) -> Color {
         let idle = Color.cardFill

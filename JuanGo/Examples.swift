@@ -1,5 +1,31 @@
 import Foundation
 import SwiftData
+/// Finds a word in a sentence, allowing simple inflections: use → using, study → studied, run → running,
+/// and for phrases an inflected first word: look forward to → looking forward to.
+enum WordMatch {
+    nonisolated static func pattern(for term: String) -> String? {
+        let parts = term.lowercased().split(separator: " ").map(String.init)
+        guard let first = parts.first else { return nil }
+        // the word itself plus any ending (uses, used, running); dropped -e and y → i only before a real suffix,
+        // so "use" matches "using" but not "us"
+        var forms = [NSRegularExpression.escapedPattern(for: first) + "\\w*"]
+        if first.count >= 3, first.hasSuffix("e") {
+            forms.append(NSRegularExpression.escapedPattern(for: String(first.dropLast())) + "(?:ing|ion|ions|able)\\b")
+        }
+        if first.count >= 3, first.hasSuffix("y") {
+            forms.append(NSRegularExpression.escapedPattern(for: String(first.dropLast())) + "i(?:ed|es|er|est|ly|ness|ful)\\b")
+        }
+        let head = "(?:" + forms.joined(separator: "|") + ")"
+        let rest = parts.dropFirst().map { "\\s+" + NSRegularExpression.escapedPattern(for: $0) }.joined()
+        return "\\b" + head + rest + (parts.count > 1 ? "\\w*" : "")
+    }
+
+    nonisolated static func found(_ term: String, in sentence: String) -> Bool {
+        guard let p = pattern(for: term) else { return false }
+        return sentence.range(of: p, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+}
+
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -192,9 +218,9 @@ final class ExampleStore {
             } catch { continue }
             en = en.trimmingCharacters(in: .whitespacesAndNewlines)
             zh = zh.trimmingCharacters(in: .whitespacesAndNewlines)
-            // The sentence must really use the word (any inflection: stem of up to 5 letters).
-            let stem = String(e.w.lowercased().prefix(max(3, min(5, e.w.count - 1))))
-            guard en.lowercased().contains(stem), !zh.isEmpty, en.split(separator: " ").count <= 24 else { continue }
+            // The sentence must really use this word, not a relative of it ("machines" for "machinery"),
+            // so it can also be blanked out for a cloze question.
+            guard WordMatch.found(e.w, in: en), !zh.isEmpty, en.split(separator: " ").count <= 24 else { continue }
             return Example(en: en, zh: zh)
         }
         return nil
