@@ -48,6 +48,17 @@ struct ImportTab: View {
                         sourceRow("拍照掃描", "camera.viewfinder") { showCamera = true }
                         sourceRow("從相簿選照片", "photo.stack") { showPhotoPicker = true }
                         sourceRow("匯入檔案（txt、csv、JuanGo 清單）", "doc.text") { showFileImporter = true }
+                        // a word list copied from Notes or a chat; read like a .txt file. The system paste button
+                        // doesn't ask for permission each time, as reading the clipboard directly would.
+                        HStack {
+                            Label { Text("貼上單字清單").foregroundStyle(.primary) } icon: { LIcon("doc.on.clipboard").foregroundStyle(.tint) }
+                            Spacer()
+                            PasteButton(payloadType: String.self) { strings in
+                                let text = strings.joined(separator: "\n")
+                                Task { @MainActor in candidates = OCRCandidates(text: text, fromFile: true) }
+                            }
+                            .labelStyle(.titleOnly).buttonBorderShape(.capsule).controlSize(.small)
+                        }
                         sourceRow("輸入分享代碼", "square.and.arrow.down.fill") { codeInput = ""; askCode = true }
                     }
                     Section("最近新增") { recentList }
