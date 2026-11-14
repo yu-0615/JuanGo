@@ -528,5 +528,7 @@ struct ScoreRing: View {
             }
         }
         .onAppear { withAnimation(.easeOut(duration: 0.9)) { shown = true } }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("一次就會 \(Int((Double(good) / Double(max(1, good + unsure + again)) * 100).rounded()))%：會 \(good) 個、不確定 \(unsure) 個、不會 \(again) 個")
     }
 }
