@@ -499,7 +499,7 @@ struct WordDetailView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         LabeledContent("加入日期", value: word.addedAt.formatted(.dateTime.year().month().day().locale(.zh)))
                         LabeledContent("複習次數", value: "\(word.reviewCount)")
-                        if let due = word.dueDate { LabeledContent("下次複習", value: due <= .now ? "已到期" : due.formatted(.relative(presentation: .named).locale(.zh))) }
+                        if let due = word.dueDate { LabeledContent("下次複習", value: dueText(due)) }
                         if !word.lists.isEmpty { LabeledContent("清單", value: word.lists.map(\.name).joined(separator: "、")) }
                     }.font(.app(.subheadline))
                 }
@@ -602,4 +602,12 @@ struct WordDetailSheet: View {
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } } }
         }
     }
+}
+
+/// When a word is next due, in days: reviews come due at the start of a day, so "in 6 hours" would only mean 明天.
+func dueText(_ due: Date) -> String {
+    guard due > .now else { return "已到期" }
+    let cal = Calendar.current
+    let d = cal.dateComponents([.day], from: cal.startOfDay(for: .now), to: cal.startOfDay(for: due)).day ?? 0
+    return d <= 0 ? "今天" : d == 1 ? "明天" : d == 2 ? "後天" : "\(d) 天後"
 }

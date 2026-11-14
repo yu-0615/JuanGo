@@ -257,16 +257,22 @@ enum SRS {
             let wasMastered = word.srsLevel >= 5
             word.srsLevel = min(5, word.srsLevel + 1)
             let days = wasMastered ? intervals[6] : intervals[word.srsLevel]
-            word.dueDate = now.addingTimeInterval(days * 86_400)
+            word.dueDate = day(days, from: now)
         case .unsure:
             word.srsLevel = max(1, word.srsLevel)
-            word.dueDate = now.addingTimeInterval(86_400)
+            word.dueDate = day(1, from: now)
         case .again:
             word.srsLevel = max(1, word.srsLevel - 1)
             word.dueDate = now.addingTimeInterval(20 * 60)
         }
         word.lastReviewed = now
         word.reviewCount += 1
+    }
+
+    /// Reviews come due at the start of their day rather than at the exact time: a word studied at 10 pm
+    /// is waiting the next morning instead of only from 10 pm on.
+    private static func day(_ days: Double, from now: Date) -> Date {
+        Calendar.current.startOfDay(for: now.addingTimeInterval(days * 86_400))
     }
 }
 
