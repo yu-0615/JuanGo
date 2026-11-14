@@ -60,7 +60,11 @@ struct ExploreTab: View {
                     Button("設定", pulso: "slider.horizontal.3") { showSettings = true }
                 }
             }
-            .onAppear { if feed.isEmpty { rebuild() } }
+            .onAppear {
+                if feed.isEmpty { rebuild() }
+                // the first cards' sentences start right away, ahead of any background filling
+                for e in feed.prefix(3) { ExampleStore.shared.request(e, priority: .soon) }
+            }
             .onChange(of: deck) { rebuild() }
             .onChange(of: levels) { rebuild() }
             .onChange(of: posFilter) { rebuild() }
@@ -68,7 +72,7 @@ struct ExploreTab: View {
                 if let new, !settings.muted { Speech.say(new) }
                 if old != nil, tipStep == 0 { tipStep = 1 }
                 if let i = feed.firstIndex(where: { $0.w == new }) {
-                    for e in feed.dropFirst(i + 1).prefix(2) { ExampleStore.shared.request(e) }
+                    for e in feed.dropFirst(i + 1).prefix(3) { ExampleStore.shared.request(e, priority: .soon) }
                 }
             }
             .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }

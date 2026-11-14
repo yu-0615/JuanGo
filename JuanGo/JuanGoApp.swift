@@ -104,6 +104,9 @@ struct MainTabs: View {
             tidyScannedWords()
             redoExamplesWithoutTheWord()
             ExampleStore.shared.container = ctx.container
+            ExampleStore.shared.warmUp()   // load the model now, not when the first card asks for a sentence
+            // saved words are filled in a moment later, so a card opened right away isn't queued behind them
+            try? await Task.sleep(for: .seconds(3))
             ExampleStore.shared.backfill((try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.example == "" }))) ?? [])
         }
     }

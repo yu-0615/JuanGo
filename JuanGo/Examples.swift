@@ -46,7 +46,12 @@ final class ExampleStore {
     private(set) var cache: [String: Example]
     /// The sentence being written right now, as far as the model has got (shown on the card while it streams in).
     private(set) var partial: [String: Example] = [:]
-    private var queue: [(e: DictEntry, key: String)] = []
+    /// How soon a sentence is needed: the card on screen, the next few cards, or saved words filled in quietly.
+    enum Priority: Int, Comparable {
+        case now, soon, background
+        static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+    }
+    private var queue: [(e: DictEntry, key: String, priority: Priority)] = []
     private var inFlight: String?
     private var failed: Set<String> = []
 
@@ -125,15 +130,20 @@ final class ExampleStore {
                          def: w.definition.isEmpty ? d?.def ?? "" : w.definition, ex: "", exZh: "", lv: w.cefr)
     }
 
-    /// Queue a word; the newest requests go first so the card on screen is served before prefetches.
-    func request(_ e: DictEntry, urgent: Bool = false, key: String? = nil) {
+    /// Queue a word. The card on screen goes first, then the next few cards, then background filling — so the
+    /// launch-time backfill of saved words (up to 40 of them) no longer holds up the cards about to be swiped to.
+    func request(_ e: DictEntry, urgent: Bool = false, priority: Priority? = nil, key: String? = nil) {
         let key = key ?? e.w
         // a scanned word with phonetics still glued on ("accuracy takjoresi") gets no sentence: the model
         // would dutifully write the junk into it
         guard GlossaryParser.cleanTerm(e.w) == e.w else { return }
         guard e.ex.isEmpty, cache[key] == nil, !failed.contains(key), Self.isAvailable, inFlight != key else { return }
+        var p = priority ?? (urgent ? .now : .soon)
+        if let old = queue.first(where: { $0.key == key }) { p = min(p, old.priority) }   // never pushed back
         queue.removeAll { $0.key == key }
-        if urgent { queue.insert((e, key), at: 0) } else { queue.append((e, key)) }
+        // newest first within the same priority, so the latest card on screen is served first
+        let at = p == .background ? queue.count : (queue.firstIndex { $0.priority >= p } ?? queue.count)
+        queue.insert((e, key, p), at: at)
         if queue.count > 40 { queue.removeLast(queue.count - 40) }
         pump()
     }
@@ -143,7 +153,7 @@ final class ExampleStore {
         for w in words where w.example.isEmpty {
             let key = Self.key(term: w.term, meanings: w.meanings)
             if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
-            request(Self.entry(for: w), key: key)
+            request(Self.entry(for: w), priority: .background, key: key)
         }
         try? words.first?.modelContext?.save()
     }
@@ -152,7 +162,8 @@ final class ExampleStore {
     /// A session made and pre-loaded ahead of time, so the next sentence doesn't wait for the model to load.
     @ObservationIgnored private var warm: LanguageModelSession?
     #endif
-    private func warmUp() {
+    /// Also called at launch: a cold model took several seconds longer to start the first sentence.
+    func warmUp() {
         #if canImport(FoundationModels)
         guard Self.isAvailable, warm == nil else { return }
         let s = Self.makeSession()
@@ -163,7 +174,7 @@ final class ExampleStore {
 
     private func pump() {
         guard inFlight == nil, !queue.isEmpty else { return }
-        let (e, key) = queue.removeFirst()
+        let (e, key, _) = queue.removeFirst()
         inFlight = key
         #if canImport(FoundationModels)
         let session = warm ?? Self.makeSession()
@@ -174,7 +185,7 @@ final class ExampleStore {
             let r = await Self.generate(e, session: session) { p in
                 Task { @MainActor in if ExampleStore.shared.inFlight == key { ExampleStore.shared.partial[key] = p } }
             }
-            if !queue.isEmpty { warmUp() }
+            warmUp()   // always keep one ready: the next card's sentence then starts without loading anything
             #else
             let r: Example? = nil
             #endif
@@ -209,7 +220,7 @@ final class ExampleStore {
     nonisolated private static func makeSession() -> LanguageModelSession {
         LanguageModelSession(instructions: """
             You write example sentences for Taiwanese high-school students learning English vocabulary. \
-            Each sentence is natural, everyday, 8 to 16 words long, and uses the target word in the given meaning. \
+            Each sentence is natural, everyday, 6 to 12 words long, and uses the target word in the given meaning. \
             The translation is fluent Traditional Chinese as used in Taiwan (never Simplified).
             """)
     }
@@ -253,7 +264,7 @@ final class ExampleStore {
         guard model.isAvailable else { return nil }
         let s = LanguageModelSession(model: model, instructions: """
             You write example sentences for Taiwanese high-school students learning English vocabulary. \
-            Reply with exactly two lines: a natural everyday English sentence of 8 to 16 words that uses the target \
+            Reply with exactly two lines: a natural everyday English sentence of 6 to 12 words that uses the target \
             word in the given meaning, then its fluent Traditional Chinese (Taiwan) translation. Nothing else.
             """)
         guard let text = try? await s.respond(to: prompt, options: GenerationOptions(maximumResponseTokens: 120)).content
