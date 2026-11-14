@@ -1388,7 +1388,10 @@ struct SummaryView: View {
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
                 Button("結束", action: onDone).buttonStyle(PillButtonStyle(height: 54)).frame(width: 110)
-                Button(left > 0 ? "再練一輪・目標還差 \(left) 字" : "再練一輪", action: onAgain)
+                Button(action: onAgain) {
+                    // the goal part goes when it doesn't fit (large text), rather than cutting the words off
+                    ViewThatFits { Text(left > 0 ? "再練一輪・目標還差 \(left) 字" : "再練一輪"); Text("再練一輪") }
+                }
                     .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 54, glass: true))
             }
             .padding(.horizontal, 20).padding(.vertical, 10)

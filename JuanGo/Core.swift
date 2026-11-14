@@ -484,6 +484,8 @@ struct PillButtonStyle: PrimitiveButtonStyle {
         let button = Button(role: configuration.role, action: configuration.trigger) {
             configuration.label
                 .font(.app(.headline))
+                // at large text sizes a half-width pill shrank 想不起來 to 想…; shrink the text a little first
+                .lineLimit(1).minimumScaleFactor(0.6)
                 .foregroundStyle(foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .frame(minHeight: max(44, height) - 30)
         }
