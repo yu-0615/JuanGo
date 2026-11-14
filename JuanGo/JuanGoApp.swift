@@ -58,7 +58,13 @@ struct RootView: View {
             }
         }
         .onChange(of: phase) { _, p in
-            if p == .background { cloud.backgroundPush(ctx) }
+            if p == .background {
+                cloud.backgroundPush(ctx)
+                // skip today's reminder when today's practice is already done
+                let start = Calendar.current.startOfDay(for: .now)
+                let n = (try? ctx.fetchCount(FetchDescriptor<ReviewLog>(predicate: #Predicate { $0.date >= start }))) ?? 0
+                Reminders.sync(settings, studiedToday: n > 0)
+            }
             if p == .active, cloud.signedIn { Task { try? await cloud.sync(ctx) } }
         }
         .alert(cloud.notice ?? "", isPresented: Binding(get: { cloud.notice != nil }, set: { if !$0 { cloud.notice = nil } })) {

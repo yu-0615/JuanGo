@@ -348,22 +348,30 @@ enum SRS {
 }
 
 enum Reminders {
-    static func sync(_ s: AppSettings) {
+    /// One notification for each of the next two weeks instead of a single repeating one, so today's can be
+    /// left out once the day's practice is done: a reminder after you've already studied is just noise.
+    /// Re-scheduled every time the app goes to the background, so the two weeks keep rolling forward.
+    static func sync(_ s: AppSettings, studiedToday: Bool = false) {
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: ["daily"])
+        center.removePendingNotificationRequests(withIdentifiers: ["daily"] + (0..<14).map { "day\($0)" })
         guard s.reminderOn else { return }
         let minutes = s.reminderMinutes
         Task {
             let ok = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
             guard ok else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "該複習單字囉"
-            content.body = "花幾分鐘把今天到期的字複習完，別讓剛學的字又忘光。"
-            content.sound = .default
-            var comps = DateComponents(); comps.hour = minutes / 60; comps.minute = minutes % 60
-            let req = UNNotificationRequest(identifier: "daily", content: content,
-                                            trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: true))
-            try? await center.add(req)
+            let cal = Calendar.current, today = cal.startOfDay(for: .now)
+            for d in 0..<14 {
+                guard let day = cal.date(byAdding: .day, value: d, to: today),
+                      let at = cal.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: day) else { continue }
+                if d == 0, studiedToday || at <= .now { continue }
+                let content = UNMutableNotificationContent()
+                content.title = "該複習單字囉"
+                content.body = "花幾分鐘把今天到期的字複習完，別讓剛學的字又忘光。"
+                content.sound = .default
+                let when = cal.dateComponents([.year, .month, .day, .hour, .minute], from: at)
+                try? await center.add(UNNotificationRequest(identifier: "day\(d)", content: content,
+                                                            trigger: UNCalendarNotificationTrigger(dateMatching: when, repeats: false)))
+            }
         }
     }
 }
