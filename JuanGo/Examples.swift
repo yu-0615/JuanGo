@@ -16,7 +16,11 @@ enum WordMatch {
             forms.append(NSRegularExpression.escapedPattern(for: String(first.dropLast())) + "i(?:ed|es|er|est|ly|ness|ful)\\b")
         }
         let head = "(?:" + forms.joined(separator: "|") + ")"
-        let rest = parts.dropFirst().map { "\\s+" + NSRegularExpression.escapedPattern(for: $0) }.joined()
+        // sth / sb stand for any few words: "harm to sth" matches "harm to the environment"
+        let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody"]
+        let rest = parts.dropFirst().map {
+            placeholders.contains($0) ? "(?:\\s+[\\w'’-]+){1,3}?" : "\\s+" + NSRegularExpression.escapedPattern(for: $0)
+        }.joined()
         return "\\b" + head + rest + (parts.count > 1 ? "\\w*" : "")
     }
 
@@ -53,7 +57,13 @@ final class ExampleStore {
     }
 
     private init() {
-        cache = (try? JSONDecoder().decode([String: Example].self, from: Data(contentsOf: Self.fileURL))) ?? [:]
+        let saved = (try? JSONDecoder().decode([String: Example].self, from: Data(contentsOf: Self.fileURL))) ?? [:]
+        // Sentences cached under the old, looser check may not use the word at all ("famed": "She gained fame…");
+        // drop those so they're written again.
+        cache = saved.filter { key, ex in
+            let term = String(key.split(separator: "|").first ?? "")
+            return WordMatch.found(term, in: ex.en) && GlossaryParser.cleanTerm(term) == term
+        }
     }
 
     static var isAvailable: Bool {
@@ -99,20 +109,28 @@ final class ExampleStore {
         for w in words.reversed() where w.example.isEmpty {
             let key = Self.key(term: w.term, meanings: w.meanings)
             if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
-            let e = key == w.term ? (Dictionary_.lookup(w.term) ?? Self.entry(for: w))
-                                  : Self.entry(for: w)
-            request(e, urgent: true, key: key)
+            request(Self.entry(for: w), urgent: true, key: key)
         }
         warmUp()
     }
 
+    /// What to write a saved word's sentence from: the word itself, in its own part of speech and meanings.
+    /// (Taking the dictionary entry instead went wrong two ways: a lookup of "exhausted" or "famed" lands on
+    /// "exhaust" / "fame", whose sentence then never reached the saved word; and an entry that already has an
+    /// example was skipped, though the word had dropped it for teaching another sense.)
     private static func entry(for w: Word) -> DictEntry {
-        DictEntry(w: w.term, ipa: w.ipa, pos: w.pos, zh: w.meanings, def: w.definition, ex: "", exZh: "", lv: w.cefr)
+        let d = Dictionary_.lookup(w.term).flatMap { $0.w == w.term ? $0 : nil }
+        return DictEntry(w: w.term, ipa: w.ipa, pos: w.pos.isEmpty ? d?.pos ?? "" : w.pos,
+                         zh: w.meanings.isEmpty ? d?.zh ?? [] : w.meanings,
+                         def: w.definition.isEmpty ? d?.def ?? "" : w.definition, ex: "", exZh: "", lv: w.cefr)
     }
 
     /// Queue a word; the newest requests go first so the card on screen is served before prefetches.
     func request(_ e: DictEntry, urgent: Bool = false, key: String? = nil) {
         let key = key ?? e.w
+        // a scanned word with phonetics still glued on ("accuracy takjoresi") gets no sentence: the model
+        // would dutifully write the junk into it
+        guard GlossaryParser.cleanTerm(e.w) == e.w else { return }
         guard e.ex.isEmpty, cache[key] == nil, !failed.contains(key), Self.isAvailable, inFlight != key else { return }
         queue.removeAll { $0.key == key }
         if urgent { queue.insert((e, key), at: 0) } else { queue.append((e, key)) }
@@ -125,9 +143,7 @@ final class ExampleStore {
         for w in words where w.example.isEmpty {
             let key = Self.key(term: w.term, meanings: w.meanings)
             if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
-            if key == w.term, let e = Dictionary_.lookup(w.term) { request(e); continue }
-            // a sense of its own: write the example from the word's own part of speech and meanings
-            request(DictEntry(w: w.term, ipa: w.ipa, pos: w.pos, zh: w.meanings, def: w.definition, ex: "", exZh: "", lv: w.cefr), key: key)
+            request(Self.entry(for: w), key: key)
         }
         try? words.first?.modelContext?.save()
     }
@@ -201,6 +217,8 @@ final class ExampleStore {
     nonisolated private static func generate(_ e: DictEntry, session: LanguageModelSession,
                                              onPartial: @escaping @Sendable (Example) -> Void) async -> Example? {
         let prompt = "Word: \(e.w)\nPart of speech: \(e.pos)\nMeaning: \(e.zh.prefix(3).joined(separator: "、"))\(e.def.isEmpty ? "" : " (\(e.def))")"
+            // without this the model often reaches for a relative ("recovering" for recovery), which fails the check below
+            + "\nUse the word \"\(e.w)\" itself in the sentence (an ending like -s, -ed or -ing is fine, a different word of the same family is not)."
         for attempt in 0..<2 {
             // greedy and capped: a short sentence comes back noticeably faster; the retry samples for a different one
             let options = attempt == 0 ? GenerationOptions(sampling: .greedy, maximumResponseTokens: 160)
@@ -213,17 +231,49 @@ final class ExampleStore {
                 for try await snap in stream {
                     en = snap.content.sentence ?? en
                     zh = snap.content.translation ?? zh
-                    if !en.isEmpty { onPartial(Example(en: en, zh: zh)) }
+                    if !en.isEmpty { onPartial(Example(en: en, zh: cleanZh(zh))) }
                 }
+            } catch LanguageModelSession.GenerationError.guardrailViolation {
+                break   // retrying the same way is refused again; go straight to the plain-text fallback
             } catch { continue }
             en = en.trimmingCharacters(in: .whitespacesAndNewlines)
-            zh = zh.trimmingCharacters(in: .whitespacesAndNewlines)
+            zh = cleanZh(zh)
             // The sentence must really use this word, not a relative of it ("machines" for "machinery"),
             // so it can also be blanked out for a cloze question.
-            guard WordMatch.found(e.w, in: en), !zh.isEmpty, en.split(separator: " ").count <= 24 else { continue }
+            guard WordMatch.found(e.w, in: en), !zh.isEmpty, zh.count <= 60, en.split(separator: " ").count <= 24 else { continue }
             return Example(en: en, zh: zh)
         }
-        return nil
+        return await plainFallback(e, prompt: prompt)
+    }
+
+    /// Some harmless words (ban, immigration) trip the default safety filter every time, so they never got an
+    /// example. Asked for two plain lines under the setting meant for transforming text, they come back fine.
+    nonisolated private static func plainFallback(_ e: DictEntry, prompt: String) async -> Example? {
+        let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+        guard model.isAvailable else { return nil }
+        let s = LanguageModelSession(model: model, instructions: """
+            You write example sentences for Taiwanese high-school students learning English vocabulary. \
+            Reply with exactly two lines: a natural everyday English sentence of 8 to 16 words that uses the target \
+            word in the given meaning, then its fluent Traditional Chinese (Taiwan) translation. Nothing else.
+            """)
+        guard let text = try? await s.respond(to: prompt, options: GenerationOptions(maximumResponseTokens: 120)).content
+        else { return nil }
+        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let han = #"\p{Han}"#
+        guard let en = lines.first(where: { $0.range(of: han, options: .regularExpression) == nil }),
+              let zhLine = lines.first(where: { $0.range(of: han, options: .regularExpression) != nil }),
+              WordMatch.found(e.w, in: en), en.split(separator: " ").count <= 24 else { return nil }
+        let zh = cleanZh(zhLine)
+        return zh.isEmpty || zh.count > 60 ? nil : Example(en: en, zh: zh)
+    }
+
+    /// Greedy decoding sometimes runs on past the translation ("…革命。」}  }  }  }"); keep the sentence only.
+    nonisolated static func cleanZh(_ z: String) -> String {
+        var t = z
+        if let i = t.firstIndex(where: { "{}".contains($0) }) { t = String(t[..<i]) }
+        t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.hasSuffix("」"), !t.contains("「") { t.removeLast() }
+        return t.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     #endif
 }

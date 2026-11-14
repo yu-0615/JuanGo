@@ -102,6 +102,7 @@ struct MainTabs: View {
         .task {
             migrateLevels()
             tidyScannedWords()
+            redoExamplesWithoutTheWord()
             ExampleStore.shared.container = ctx.container
             ExampleStore.shared.backfill((try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.example == "" }))) ?? [])
         }
@@ -128,6 +129,22 @@ struct MainTabs: View {
                 if w.pos.isEmpty { w.pos = e.pos }
             }
             changed = true
+        }
+        if changed { try? ctx.save() }
+    }
+
+    /// Examples written under the old, looser check may not use the word at all ("famed": "She gained fame…"),
+    /// which also leaves cloze questions without a blank. Clear those so the backfill below writes new ones
+    /// (only where this device can write them), and trim the run-on junk some translations ended with.
+    private func redoExamplesWithoutTheWord() {
+        guard let words = try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.example != "" })) else { return }
+        var changed = false
+        for w in words {
+            let zh = ExampleStore.cleanZh(w.exampleZh)
+            if zh != w.exampleZh { w.exampleZh = zh; changed = true }
+            if (ExampleStore.isAvailable && !WordMatch.found(w.term, in: w.example)) || GlossaryParser.cleanTerm(w.term) != w.term {
+                w.example = ""; w.exampleZh = ""; changed = true
+            }
         }
         if changed { try? ctx.save() }
     }
