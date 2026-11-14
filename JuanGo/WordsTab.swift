@@ -493,6 +493,15 @@ struct WordDetailView: View {
                                 .buttonStyle(.borderless).foregroundStyle(.tint)
                                 .accessibilityLabel("念例句")
                             Spacer()
+                            if ExampleStore.isAvailable {
+                                if ExampleStore.shared.isReplacing(word) {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Button { ExampleStore.shared.rewrite(word) } label: {
+                                        Label("換一句", pulso: "arrow.triangle.2.circlepath").font(.app(.caption, .bold))
+                                    }.foregroundStyle(.secondary).buttonStyle(.borderless)
+                                }
+                            }
                             Button { withAnimation { showTranslation.toggle() } } label: {
                                 Label("翻譯", pulso: showTranslation ? "chevron.up" : "chevron.down").font(.app(.caption, .bold))
                             }.foregroundStyle(.secondary)

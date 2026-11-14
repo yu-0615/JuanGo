@@ -214,6 +214,21 @@ final class ExampleStore {
         pump()
     }
 
+    /// Words whose sentence is being rewritten on request (換一句): the new one replaces the old when it's ready,
+    /// and the old one stays if the model can't write one.
+    private(set) var replacing: Set<String> = []
+    func isReplacing(_ w: Word) -> Bool { replacing.contains(Self.key(term: w.term, meanings: w.meanings)) }
+
+    /// 換一句: write a new sentence for a saved word.
+    func rewrite(_ w: Word) {
+        let key = Self.key(term: w.term, meanings: w.meanings)
+        guard Self.isAvailable, !replacing.contains(key) else { return }
+        replacing.insert(key)
+        cache[key] = nil; failed.remove(key)
+        request(Self.entry(for: w), urgent: true, key: key)
+        if !queue.contains(where: { $0.key == key }) && inFlight != key { replacing.remove(key) }   // refused (e.g. a junk term)
+    }
+
     /// Give saved words without an example one (runs quietly in the background, a few at a time).
     func backfill(_ words: [Word]) {
         for w in words where w.example.isEmpty {
@@ -265,6 +280,7 @@ final class ExampleStore {
             } else {
                 failed.insert(key)
             }
+            replacing.remove(key)
             pump()
         }
     }
@@ -290,8 +306,9 @@ final class ExampleStore {
         // a sentence somebody is waiting for (the card on screen) goes in right away
         guard let ctx = container?.mainContext else { return }
         var fd = FetchDescriptor<Word>(predicate: #Predicate { $0.term == term }); fd.fetchLimit = 1
-        if let w = try? ctx.fetch(fd).first, w.example.isEmpty, Self.key(term: w.term, meanings: w.meanings) == key {
+        if let w = try? ctx.fetch(fd).first, w.example.isEmpty || replacing.contains(key), Self.key(term: w.term, meanings: w.meanings) == key {
             w.example = r.en; w.exampleZh = r.zh
+            try? ctx.save()
         }
     }
 
