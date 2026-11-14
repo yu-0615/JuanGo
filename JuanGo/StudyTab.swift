@@ -419,8 +419,10 @@ struct SessionSetupView: View {
     @State private var smart = true
     @State private var types: Set<QType> = [.flashcard]
     @State private var listening = false
-    /// 本次隨機抽取: 0 = all words, -1 = 無盡模式, otherwise draw this many at random.
+    /// 題數: 0 = all words, -1 = 無盡模式, otherwise draw this many (words due for review first).
     @State private var limit = 0
+    /// The count picked last time, so a big list doesn't default to an 80-minute round every time.
+    @AppStorage("practiceLimit") private var savedLimit = 20
     @State private var showInfo = false
     /// The random draw for the current count, kept so the preview and the round use the same words.
     @State private var drawn: [Word] = []
@@ -455,15 +457,15 @@ struct SessionSetupView: View {
             }
             VStack(spacing: 10) {
                 Menu {
-                    Picker("題數", selection: $limit) {
+                    Picker("題數", selection: Binding(get: { limit }, set: { limit = $0; savedLimit = $0 })) {
                         Text("全部 \(request.words.count) 個").tag(0)
-                        ForEach(drawOptions, id: \.self) { Text("隨機 \($0) 個").tag($0) }
+                        ForEach(drawOptions, id: \.self) { Text("\($0) 個").tag($0) }
                         Text("無盡模式").tag(-1)
                     }
                     .pickerStyle(.inline)
                 } label: {
                     HStack(spacing: 10) {
-                        LIcon(endless ? "infinity" : "dice.fill", size: 20, play: limit != 0).fontWeight(.semibold).foregroundStyle(Color.themeAccent)
+                        LIcon(endless ? "infinity" : "list.number", size: 20, play: endless).fontWeight(.semibold).foregroundStyle(Color.themeAccent)
                         Text("題數").foregroundStyle(.secondary)
                         Spacer()
                         Text(drawLabel).fontWeight(.bold)
@@ -481,8 +483,16 @@ struct SessionSetupView: View {
             }
         }
         .padding(.horizontal, 18)
+        .onAppear {
+            // last time's count, if this list is big enough for it; otherwise the closest smaller one
+            if savedLimit == -1 { limit = -1 }
+            else if savedLimit > 0 { limit = drawOptions.last { $0 <= savedLimit } ?? 0 }
+        }
         .onChange(of: limit, initial: true) { _, n in
-            drawn = n > 0 ? Array(request.words.prefix(n)) : []   // the words are already shuffled
+            // the words are already shuffled; keep that order within each group
+            let w = request.words
+            let ordered = w.filter(\.isDue) + w.filter { !$0.isDue && !$0.isMastered } + w.filter { !$0.isDue && $0.isMastered }
+            drawn = n > 0 ? Array(ordered.prefix(n)) : []
         }
         #if DEBUG
         .task {   // device testing: JUANGO_AUTOSTART=1 presses 開始練習 after a moment, like a tap
@@ -497,7 +507,7 @@ struct SessionSetupView: View {
         switch limit {
         case 0: "全部 \(request.words.count) 個"
         case -1: "無盡模式"
-        default: "隨機 \(limit) 個"
+        default: "\(limit) 個"
         }
     }
 
@@ -538,7 +548,7 @@ struct SessionSetupView: View {
             }.card()
             }
             Toggle(isOn: $listening) { Label("包含聽力題", pulso: "headphones").font(.app(.headline)) }.card()
-            Text("自動安排會依熟練階梯出題：初見的字翻卡片，越往上越考中翻英、克漏字和拼字。")
+            Text("自動安排會依熟練階梯出題：初見的字翻卡片，越往上越考中翻英、克漏字和拼字。只練一部分時，該複習的字會先排進來。")
                 .font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
