@@ -17,6 +17,8 @@ struct WordsTab: View {
     @State private var moveSheet = false
     @State private var debugWord: Word?
     @State private var confirmMerge = false
+    /// junk terms whose merge notice was turned down with 不用 (newline-separated)
+    @AppStorage("dismissedDuplicates") private var dismissedDuplicates = ""
 
     var body: some View {
         NavigationStack {
@@ -148,9 +150,10 @@ struct WordsTab: View {
     /// Scanned words with phonetics glued on whose clean spelling is saved too ("accuracy takjoresi" beside "accuracy").
     private var scanDuplicates: [(junk: Word, keep: Word)] {
         let byTerm = Dictionary(words.map { ($0.term, $0) }, uniquingKeysWith: { a, _ in a })
+        let dismissed = Set(dismissedDuplicates.split(separator: "\n").map(String.init))
         return words.compactMap { w in
             let clean = GlossaryParser.cleanTerm(w.term)
-            guard clean != w.term, let keep = byTerm[clean] else { return nil }
+            guard clean != w.term, let keep = byTerm[clean], !dismissed.contains(w.term) else { return nil }
             return (w, keep)
         }
         .sorted { $0.junk.term < $1.junk.term }
@@ -166,6 +169,12 @@ struct WordsTab: View {
                         Text("\(d.junk.term) → \(d.keep.term)").font(.app(.subheadline)).foregroundStyle(.secondary)
                     }
                 }
+                HStack(spacing: 10) {
+                Button("不用") {
+                    withAnimation { dismissedDuplicates = (dismissedDuplicates.split(separator: "\n").map(String.init) + dups.map(\.junk.term)).joined(separator: "\n") }
+                }
+                .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 44))
+                .frame(maxWidth: 110)
                 Button("合併到正確的字") { confirmMerge = true }
                     .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 44, glass: true))
                     // on the button, so the confirmation points at it rather than at the top of the screen
@@ -175,6 +184,7 @@ struct WordsTab: View {
                     } message: {
                         Text("清單、收藏、中文意思和練習紀錄會移到正確的字上，再刪掉黏到音標的那一筆。")
                     }
+                }
             }
             .padding(.vertical, 6)
         }
