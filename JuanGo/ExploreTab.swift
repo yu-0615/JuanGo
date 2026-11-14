@@ -163,6 +163,11 @@ struct ExploreTab: View {
         } else {
             pool.shuffle()
         }
+        #if DEBUG   // simulator testing: SIMCTL_CHILD_JUANGO_EXPLORE_FIRST=word puts that word's card first
+        if let w = ProcessInfo.processInfo.environment["JUANGO_EXPLORE_FIRST"], let i = pool.firstIndex(where: { $0.w == w }) {
+            pool.insert(pool.remove(at: i), at: 0)
+        }
+        #endif
         feed = pool
         current = pool.first?.w
     }

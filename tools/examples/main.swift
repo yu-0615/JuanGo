@@ -36,7 +36,10 @@ let plainInstructions = """
         let levels = a[3].split(separator: ",").map(String.init)
         let shard = Int(a[4])!, shards = Int(a[5])!
         var done = Set<String>()
-        if let old = try? String(contentsOf: outURL, encoding: .utf8) {
+        // every out*.jsonl beside the output counts, so the shard count can change between runs
+        let dir = outURL.deletingLastPathComponent()
+        for f in (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? [] where f.hasPrefix("out") && f.hasSuffix(".jsonl") {
+            guard let old = try? String(contentsOf: dir.appendingPathComponent(f), encoding: .utf8) else { continue }
             for line in old.split(separator: "\n") {
                 if let d = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: String], let w = d["w"] { done.insert(w) }
             }
