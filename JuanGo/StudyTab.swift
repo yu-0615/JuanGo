@@ -1449,6 +1449,7 @@ extension Grade {
 struct HistoryView: View {
     let logs: [ReviewLog]
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var ctx
     var body: some View {
         NavigationStack {
             List { Group {
@@ -1457,6 +1458,9 @@ struct HistoryView: View {
                 ForEach(groups.keys.sorted(by: >), id: \.self) { day in
                     Section(day.formatted(.dateTime.month().day().weekday().locale(.zh))) {
                         ForEach(groups[day]!) { l in
+                            // a row opens the word's page (a word deleted since then just shows the row)
+                            let w = Library.word(l.term, in: ctx)
+                            NavigationLink(value: w) {
                             HStack {
                                 Text(l.term).font(.app(.headline))
                                 if l.wasNew { Text("新字").font(.app(.caption2, .bold)).foregroundStyle(.tint) }
@@ -1465,11 +1469,14 @@ struct HistoryView: View {
                                     .foregroundStyle([Color.red, .orange, .green][l.result])
                                 Text(l.date.formatted(.dateTime.hour().minute().locale(.zh))).font(.app(.caption)).foregroundStyle(.secondary)
                             }
+                            }
+                            .disabled(w == nil)
                         }
                     }
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("學習紀錄")
+            .navigationDestination(for: Word.self) { WordDetailView(word: $0) }
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { dismiss() } } }
         }
     }
