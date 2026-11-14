@@ -84,6 +84,13 @@ struct StudyTab: View {
             }
             #endif
             .sheet(isPresented: $showHistory) { HistoryView(logs: logs) }
+            .onChange(of: AppRouter.shared.startToday, initial: true) { _, go in
+                guard go else { return }
+                // cleared a moment later, so the tab bar sees it too and switches here
+                Task { @MainActor in AppRouter.shared.startToday = false }
+                let h = Home(words: words, newLeft: newLeft)
+                if flow == nil, !h.nothingQueued { flow = StudyRequest(title: "今日學習", words: h.due + h.newWords) }
+            }
         }
     }
 

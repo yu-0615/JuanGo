@@ -107,6 +107,8 @@ struct MainTabs: View {
             Tab(value: AppTab.profile) { ProfileTab() } label: { tabIcon("我的", "person.crop.circle.fill") }
         }
         .tabBarMinimizeBehavior(.never)   // the tab bar always stays full size
+        // 開始今日學習 from Siri / Spotlight / Shortcuts: the home tab takes it from here
+        .onChange(of: AppRouter.shared.startToday, initial: true) { _, go in if go { tab = .study } }
         .task {
             migrateLevels()
             tidyScannedWords()
