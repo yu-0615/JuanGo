@@ -1029,7 +1029,9 @@ struct SpellingQuestion: View {
     @State private var text = ""
     @State private var checked: Bool?
     @State private var gaveUp = false
-    @FocusState private var focused: Bool
+    /// one letter off (a typo, a missed double letter): shown as 差一點 and graded 不確定 rather than 不會
+    @State private var nearMiss = false
+    @State private var typing = false
 
     /// The meaning on top, one box per letter (first and last letter shown), then a plain text field.
     var body: some View {
@@ -1047,19 +1049,16 @@ struct SpellingQuestion: View {
             }
             .frame(maxWidth: .infinity, minHeight: 150)
             letterBoxes
-            TextField("在這裡拼出單字", text: $text)
-                .font(.system(.title3, design: .monospaced).weight(.semibold))
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                .focused($focused)
-                .submitLabel(.done)
-                .onSubmit(check)
+            // a UIKit field: SwiftUI's autocorrectionDisabled() still leaves the suggestion bar up, which spells the answer out
+            SpellingField(placeholder: "在這裡拼出單字", text: $text, focused: $typing, onSubmit: check)
                 .padding(.horizontal, 16).frame(height: 54)
                 .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.cardFill))
-                .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(focused ? Color.themeAccent : .clear, lineWidth: 2))
+                .overlay(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).strokeBorder(typing && checked == nil ? Color.themeAccent : .clear, lineWidth: 2))
                 .disabled(checked != nil)
             if let checked {
-                Label(checked ? "拼對了！" : "答案是 \(word.term)", pulso: checked ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.app(.headline)).foregroundStyle(checked ? Color.green : Color.themeAccent)
+                Label(checked ? "拼對了！" : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
+                      pulso: checked ? "checkmark.circle.fill" : nearMiss ? "exclamationmark.circle.fill" : "xmark.circle.fill")
+                    .font(.app(.headline)).foregroundStyle(checked ? Color.knowInk : nearMiss ? Color.unsureInk : Color.themeAccent)
             } else {
                 HStack(spacing: 12) {
                     Button("想不起來", pulso: "questionmark") { gaveUp = true; checked = false; Speech.say(word.term) }
@@ -1079,7 +1078,7 @@ struct SpellingQuestion: View {
                 .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
                 Spacer()
                 if checked == false {
-                    Button("下一題") { onGrade(.again) }
+                    Button("下一題") { onGrade(nearMiss ? .unsure : .again) }
                         .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
                 }
             }
@@ -1088,18 +1087,23 @@ struct SpellingQuestion: View {
         }
         .padding(.top, 12).padding(.bottom, 8)
         .onAppear { if listen { Speech.say(word.term) } }
+        // the keyboard comes up by itself, so the answer can be typed right away
+        .task { try? await Task.sleep(for: .milliseconds(350)); typing = true }
     }
 
     /// One box per letter; typed letters fill in as you go.
     private var letterBoxes: some View {
         let t = Array(word.term), typed = Array(text)
+        let matched = checked != nil ? Self.matchedLetters(of: word.term, in: text) : []
         let side = min(34, (UIScreen.main.bounds.width - 40) / CGFloat(max(1, t.count)) - 4)
         return HStack(spacing: 4) {
             ForEach(0..<t.count, id: \.self) { k in
                 let given = k == 0 || k == t.count - 1 || t[k] == " " || t[k] == "-"
-                let ch: String = k < typed.count ? String(typed[k]) : (given || checked != nil ? String(t[k]) : "")
+                // once checked, the boxes spell the answer, with the letters typed wrong in red
+                let ch: String = checked != nil ? String(t[k]) : k < typed.count ? String(typed[k]) : (given ? String(t[k]) : "")
+                let wrong = checked != nil && !matched.contains(k)
                 Text(ch).font(.system(size: side * 0.55, weight: .bold, design: .monospaced))
-                    .foregroundStyle(k < typed.count ? Color.primary : Color.secondary)
+                    .foregroundStyle(wrong ? Color.themeAccent : k < typed.count || checked != nil ? Color.primary : Color.secondary)
                     .frame(width: side, height: side * 1.2)
                     .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color(.tertiarySystemFill)))
                     .overlay(RoundedRectangle(cornerRadius: Radius.sm).strokeBorder(k == typed.count && checked == nil ? Color.themeAccent : .clear, lineWidth: 2))
@@ -1110,10 +1114,97 @@ struct SpellingQuestion: View {
 
     private func check() {
         guard checked == nil, !text.isEmpty else { return }
-        let ok = text.trimmingCharacters(in: .whitespaces).lowercased() == word.term.lowercased()
+        let typed = text.trimmingCharacters(in: .whitespaces).lowercased(), answer = word.term.lowercased()
+        let ok = typed == answer
+        nearMiss = !ok && answer.count >= 4 && Self.distance(typed, answer) == 1
         checked = ok
         Speech.say(word.term)
         if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(.good) } }
+    }
+
+    /// Positions in `answer` that line up with what was typed (longest common subsequence), so a missed letter
+    /// marks only that letter, not everything after it: atraction → a t [t] r a c t i o n.
+    static func matchedLetters(of answer: String, in typed: String) -> Set<Int> {
+        let a = Array(answer.lowercased()), b = Array(typed.lowercased())
+        guard !a.isEmpty, !b.isEmpty else { return [] }
+        var l = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in stride(from: a.count - 1, through: 0, by: -1) {
+            for j in stride(from: b.count - 1, through: 0, by: -1) {
+                l[i][j] = a[i] == b[j] ? l[i+1][j+1] + 1 : max(l[i+1][j], l[i][j+1])
+            }
+        }
+        var out = Set<Int>(), i = 0, j = 0
+        while i < a.count, j < b.count {
+            if a[i] == b[j] { out.insert(i); i += 1; j += 1 }
+            else if l[i+1][j] >= l[i][j+1] { i += 1 } else { j += 1 }
+        }
+        return out
+    }
+
+    /// Edit distance (insert, delete, replace one letter), counting a swap of two neighbours as one: recieve → receive.
+    static func distance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        guard !a.isEmpty, !b.isEmpty else { return max(a.count, b.count) }
+        var d = Array(repeating: Array(repeating: 0, count: b.count + 1), count: a.count + 1)
+        for i in 0...a.count { d[i][0] = i }
+        for j in 0...b.count { d[0][j] = j }
+        for i in 1...a.count {
+            for j in 1...b.count {
+                d[i][j] = min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] == b[j-1] ? 0 : 1))
+                if i > 1, j > 1, a[i-1] == b[j-2], a[i-2] == b[j-1] { d[i][j] = min(d[i][j], d[i-2][j-2] + 1) }
+            }
+        }
+        return d[a.count][b.count]
+    }
+}
+
+/// A plain text field with no autocorrection, spell checking or predictions, for typing a spelling answer.
+struct SpellingField: UIViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    @Binding var focused: Bool
+    var onSubmit: () -> Void
+
+    func makeUIView(context: Context) -> UITextField {
+        let f = UITextField()
+        f.placeholder = placeholder
+        f.font = UIFontMetrics(forTextStyle: .title3).scaledFont(for: .monospacedSystemFont(ofSize: 20, weight: .semibold))
+        f.adjustsFontForContentSizeCategory = true
+        f.autocapitalizationType = .none
+        f.autocorrectionType = .no
+        f.spellCheckingType = .no
+        f.smartQuotesType = .no
+        f.smartDashesType = .no
+        f.smartInsertDeleteType = .no
+        f.inlinePredictionType = .no
+        f.keyboardType = .asciiCapable
+        f.returnKeyType = .done
+        f.inputAssistantItem.leadingBarButtonGroups = []
+        f.inputAssistantItem.trailingBarButtonGroups = []
+        f.delegate = context.coordinator
+        f.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        f.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        f.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return f
+    }
+
+    func updateUIView(_ f: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if f.text != text { f.text = text }
+        f.isEnabled = context.environment.isEnabled
+        if focused, f.isEnabled, !f.isFirstResponder { DispatchQueue.main.async { f.becomeFirstResponder() } }
+        if (!focused || !f.isEnabled), f.isFirstResponder { DispatchQueue.main.async { f.resignFirstResponder() } }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: SpellingField
+        init(_ p: SpellingField) { parent = p }
+        @objc func changed(_ f: UITextField) { parent.text = f.text ?? "" }
+        func textFieldDidBeginEditing(_ f: UITextField) { if !parent.focused { parent.focused = true } }
+        func textFieldDidEndEditing(_ f: UITextField) { if parent.focused { parent.focused = false } }
+        func textFieldShouldReturn(_ f: UITextField) -> Bool { parent.onSubmit(); return false }
     }
 }
 
