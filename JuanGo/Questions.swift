@@ -323,11 +323,18 @@ struct ChoiceQuestion: View {
         // is enough (mapping all 10k dictionary entries on every question made the card transition stutter).
         // fetched once here rather than kept live with @Query, which re-rendered the question on every save
         let library = (try? ctx.fetch(FetchDescriptor<Word>())) ?? []
-        let own: [(term: String, zh: String, pos: String)] = library.map { ($0.term, $0.primaryMeaning, $0.pos) }
+        // only saved words the dictionary knows: a misread scan ("anfegetaball") makes a give-away option
+        let own: [(term: String, zh: String, pos: String)] = library.filter { Dictionary_.lookup($0.term) != nil }
+            .map { ($0.term, $0.primaryMeaning, $0.pos) }
         let dictSame = (Dictionary_.byPos[word.pos] ?? []).shuffled().prefix(40).map { ($0.w, $0.zh.first ?? "", $0.pos) }
         let dictAny = (0..<40).compactMap { _ in Dictionary_.all.randomElement() }.map { ($0.w, $0.zh.first ?? "", $0.pos) }
         let pool: [(term: String, zh: String, pos: String)] = own + dictSame + dictAny
-        let others = pool.filter { $0.term != word.term && !$0.zh.isEmpty && $0.zh != word.primaryMeaning }
+        // nothing that would also be right: one of this word's other meanings, or its British / American twin
+        let mine = Set(word.meanings)
+        let others = pool.filter {
+            $0.term != word.term && !$0.zh.isEmpty && $0.zh != word.primaryMeaning && !mine.contains($0.zh)
+                && !SpellingQuestion.variants($0.term.lowercased(), word.term.lowercased())
+        }
         let samePos = others.filter { $0.pos == word.pos }.shuffled()
         // a phrase among single words gives itself away, so English options for a phrase are phrases first
         let phrases = !answersInZh && word.term.contains(" ")
@@ -337,6 +344,8 @@ struct ChoiceQuestion: View {
         var picks: [String] = []
         for c in (phrases + samePos + others.shuffled()) {
             if !answersInZh, !word.term.contains(" "), c.term.contains(" ") { continue }   // and the other way round
+            // an English option that also means one of the asked meanings (glad for 快樂的、高興的) is a second answer
+            if !answersInZh, let z = Dictionary_.lookup(c.term)?.zh, !mine.isDisjoint(with: z) { continue }
             let v = answersInZh ? c.zh : c.term
             if !picks.contains(v) && v != correct { picks.append(v); otherSide[v] = answersInZh ? c.term : c.zh }
             if picks.count == 3 { break }
@@ -527,6 +536,7 @@ struct SpellingQuestion: View {
     /// American words that mean something else too (tire 疲倦, story 故事, draft 草稿): the British form isn't
     /// accepted for them, only the other way round.
     private static let oneWay: Set<String> = ["tire", "story", "draft", "jail"]
+    static func variants(_ a: String, _ b: String) -> Bool { britishToAmerican[a] == b || britishToAmerican[b] == a }
     static func sameWord(_ typed: String, _ answer: String) -> Bool {
         if britishToAmerican[answer] == typed { return true }
         if let us = britishToAmerican[typed], us == answer, !oneWay.contains(answer) { return true }
