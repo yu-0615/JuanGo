@@ -184,7 +184,7 @@ struct ExploreCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                tag(levelLabel(entry.lv), filled: true)
+                if !entry.lv.isEmpty, entry.lv != "—" { tag(levelLabel(entry.lv), filled: true) }
                 if !entry.pos.isEmpty { tag(entry.pos, filled: false) }
                 Spacer()
                 if isSaved { Label("已收藏", pulso: "bookmark.fill").font(.app(.caption, .bold)).foregroundStyle(.tint) }

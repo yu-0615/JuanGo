@@ -420,7 +420,6 @@ struct SessionSetupView: View {
     @State private var limit = 0
     /// The count picked last time, so a big list doesn't default to an 80-minute round every time.
     @AppStorage("practiceLimit") private var savedLimit = 20
-    @State private var showInfo = false
     /// The random draw for the current count, kept so the preview and the round use the same words.
     @State private var drawn: [Word] = []
 
@@ -436,8 +435,6 @@ struct SessionSetupView: View {
                     Text("本輪設定").font(.app(.largeTitle, .bold))
                 }
                 Spacer()
-                Button { showInfo = true } label: { LIcon("questionmark.circle").font(.app(.title3)) }
-                    .foregroundStyle(.secondary)
                 Button(action: onClose) {
                     LIcon("xmark").font(.app(.headline)).frame(width: 36, height: 36)
                         .glassEffect(.regular.interactive(), in: .circle)
@@ -445,9 +442,6 @@ struct SessionSetupView: View {
                 .foregroundStyle(.primary)
             }
             .padding(.top, 8)
-            .alert("題目怎麼安排？", isPresented: $showInfo) { Button("好", role: .cancel) {} } message: {
-                Text("自動安排：依每個字在熟練階梯的位置出題，越熟題目越難。\n手動挑選：自己決定要考哪幾種題型。")
-            }
             Picker("", selection: $smart) { Text("自動安排").tag(true); Text("手動挑選").tag(false) }.pickerStyle(.segmented)
             ScrollView {
                 if smart { smartPanel } else { customPanel }

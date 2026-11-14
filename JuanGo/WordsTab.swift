@@ -437,7 +437,9 @@ struct WordDetailView: View {
                     }.font(.app(.subheadline))
                     HStack(spacing: 6) {
                         if !word.pos.isEmpty { detailTag(word.pos) }
-                        detailTag(levelLabel(cefrToExam[word.cefr] ?? word.cefr))
+                        // "—" marks a word with no level (scanned phrases, AI lookups): no tag rather than a dash
+                        let lv = cefrToExam[word.cefr] ?? word.cefr
+                        if !lv.isEmpty, lv != "—" { detailTag(levelLabel(lv)) }
                         detailTag(levelNames[max(0, min(5, word.srsLevel))])
                     }
                     Divider().padding(.vertical, 4)
