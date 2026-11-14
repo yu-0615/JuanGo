@@ -294,11 +294,16 @@ struct WordsTab: View {
     }
 
     private func deckLinks(_ decks: [Deck]) -> some View {
-        ForEach(decks) { d in
+        let have = Set(words.filter(\.inMyWords).map(\.term))
+        return ForEach(decks) { d in
+            let all = Dictionary_.entries(deck: d)
+            // how far into each deck the saved words reach
+            let added = have.isEmpty ? 0 : all.count { have.contains($0.w) }
             NavigationLink(value: ListRoute.deck(d.rawValue)) {
                 VStack(alignment: .leading) {
                     Text(d.rawValue).font(.app(.headline))
-                    Text("\(Dictionary_.entries(deck: d).count) 個單字・\(d.subtitle)").font(.app(.caption)).foregroundStyle(.secondary)
+                    Text("\(all.count) 個單字\(added > 0 ? "・已加入 \(added)" : "")・\(d.subtitle)")
+                        .font(.app(.caption)).foregroundStyle(.secondary)
                 }
             }
         }
