@@ -661,7 +661,7 @@ struct SessionView: View {
         .onAppear { if !settings.studyRulesSeen { showRules = true; settings.studyRulesSeen = true } }
         .sheet(isPresented: $showRules) { RulesSheet() }
         .sheet(isPresented: $showSettings) { SettingsView() }
-        .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
+        .sheet(item: $detail) { WordDetailSheet(word: $0) }
         .alert("先休息一下？", isPresented: $confirmExit) {
             Button("繼續練", role: .cancel) {}
             Button("離開") { onClose() }
@@ -1395,7 +1395,7 @@ struct SummaryView: View {
             .padding(.horizontal, 20).padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
-        .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
+        .sheet(item: $detail) { WordDetailSheet(word: $0) }
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
                 Button("結束", action: onDone).buttonStyle(PillButtonStyle(height: 54)).frame(width: 110)

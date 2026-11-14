@@ -67,7 +67,7 @@ struct ImportTab: View {
             .overlay { if busy { ProgressView("正在辨識文字…").padding(24).background(.regularMaterial, in: .rect(cornerRadius: Radius.lg)) } }
             .navigationTitle("新增")
             .themedBackground()
-            .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
+            .sheet(item: $detail) { WordDetailSheet(word: $0) }
             .sheet(item: $lookup) { item in
                 WordConfirmSheet(term: item.term, destination: destination) { w in
                     query = ""; focused = false

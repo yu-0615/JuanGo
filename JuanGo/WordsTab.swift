@@ -575,3 +575,16 @@ struct WordDetailView: View {
             .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.1)))
     }
 }
+
+/// The word's page on its own in a sheet (from a round, its summary or 新增): there's no back button there,
+/// so it gets a close button instead of relying on the swipe down.
+struct WordDetailSheet: View {
+    let word: Word
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            WordDetailView(word: word)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(role: .close) { dismiss() } } }
+        }
+    }
+}
