@@ -434,6 +434,8 @@ struct MasteryCard: View {
                         Text(levelNames[i]).font(.app(.caption2, .semibold)).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(levelNames[i]) \(distribution[i]) 個")
                 }
             }
         }
