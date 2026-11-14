@@ -168,7 +168,12 @@ struct StudyTab: View {
         Button { flow = StudyRequest(title: name, words: words.shuffled()) } label: {
             HStack(spacing: 14) {
                 LIcon(icon).foregroundStyle(.tint).frame(width: 28)
-                Text(name).foregroundStyle(.primary).lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).foregroundStyle(.primary).lineLimit(1)
+                    // which list needs practising today, without opening it
+                    let due = words.count(where: \.isDue)
+                    if due > 0 { Text("\(due) 個待複習").font(.app(.caption)).foregroundStyle(.secondary) }
+                }
                 Spacer()
                 Text("\(words.count) 個").foregroundStyle(.secondary)
                 LIcon("play.circle.fill").font(.app(.title3)).foregroundStyle(words.isEmpty ? Color.secondary.opacity(0.4) : Color.themeAccent)
