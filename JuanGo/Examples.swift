@@ -16,12 +16,28 @@ enum WordMatch {
             forms.append(NSRegularExpression.escapedPattern(for: String(first.dropLast())) + "i(?:ed|es|er|est|ly|ness|ful)\\b")
         }
         let head = "(?:" + forms.joined(separator: "|") + ")"
-        // sth / sb stand for any few words: "harm to sth" matches "harm to the environment"
-        let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody"]
         let rest = parts.dropFirst().map {
-            placeholders.contains($0) ? "(?:\\s+[\\w'’-]+){1,3}?" : "\\s+" + NSRegularExpression.escapedPattern(for: $0)
+            placeholders.contains($0) ? "((?:\\s+[\\w'’-]+){1,3}?)" : "\\s+" + NSRegularExpression.escapedPattern(for: $0)
         }.joined()
         return "\\b" + head + rest + (parts.count > 1 ? "\\w*" : "")
+    }
+
+    // sth / sb stand for any few words: "harm to sth" matches "harm to the environment"
+    nonisolated static let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody"]
+
+    /// What a match of `pattern(for:)` is replaced with in a cloze: the word's own words become one blank each
+    /// run, and what stood for sth / sb stays, so "keep the project alive" reads "____ the project ____"
+    /// instead of the whole phrase vanishing into one blank.
+    nonisolated static func clozeTemplate(for term: String) -> String {
+        var out = "", group = 0, lastWasBlank = false
+        for part in term.lowercased().split(separator: " ").map(String.init) {
+            if placeholders.contains(part) && !out.isEmpty {
+                group += 1; out += "$\(group)"; lastWasBlank = false
+            } else if !lastWasBlank {
+                out += out.isEmpty ? "____" : " ____"; lastWasBlank = true
+            }
+        }
+        return out
     }
 
     nonisolated static func found(_ term: String, in sentence: String) -> Bool {

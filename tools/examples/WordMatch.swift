@@ -16,7 +16,7 @@ enum WordMatch {
         // sth / sb stand for any few words: "harm to sth" matches "harm to the environment"
         let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody"]
         let rest = parts.dropFirst().map {
-            placeholders.contains($0) ? "(?:\\s+[\\w'’-]+){1,3}?" : "\\s+" + NSRegularExpression.escapedPattern(for: $0)
+            placeholders.contains($0) ? "((?:\\s+[\\w'’-]+){1,3}?)" : "\\s+" + NSRegularExpression.escapedPattern(for: $0)
         }.joined()
         return "\\b" + head + rest + (parts.count > 1 ? "\\w*" : "")
     }

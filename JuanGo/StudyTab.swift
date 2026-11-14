@@ -228,7 +228,7 @@ extension Word {
     var clozeSentence: String? {
         guard let pattern = WordMatch.pattern(for: term),
               example.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
-        return example.replacingOccurrences(of: pattern, with: "____", options: [.regularExpression, .caseInsensitive])
+        return example.replacingOccurrences(of: pattern, with: WordMatch.clozeTemplate(for: term), options: [.regularExpression, .caseInsensitive])
     }
 }
 
@@ -1024,8 +1024,14 @@ struct ChoiceQuestion: View {
         let pool: [(term: String, zh: String, pos: String)] = own + dictSame + dictAny
         let others = pool.filter { $0.term != word.term && !$0.zh.isEmpty && $0.zh != word.primaryMeaning }
         let samePos = others.filter { $0.pos == word.pos }.shuffled()
+        // a phrase among single words gives itself away, so English options for a phrase are phrases first
+        let phrases = !answersInZh && word.term.contains(" ")
+            ? (others + Dictionary_.all.filter { $0.w.contains(" ") && !$0.zh.isEmpty }.map { ($0.w, $0.zh.first ?? "", $0.pos) })
+                .filter { $0.term.contains(" ") && $0.term != word.term && GlossaryParser.cleanTerm($0.term) == $0.term }.shuffled()
+            : []
         var picks: [String] = []
-        for c in (samePos + others.shuffled()) {
+        for c in (phrases + samePos + others.shuffled()) {
+            if !answersInZh, !word.term.contains(" "), c.term.contains(" ") { continue }   // and the other way round
             let v = answersInZh ? c.zh : c.term
             if !picks.contains(v) && v != correct { picks.append(v); otherSide[v] = answersInZh ? c.term : c.zh }
             if picks.count == 3 { break }
