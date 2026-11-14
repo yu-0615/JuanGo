@@ -552,7 +552,9 @@ struct WordDetailView: View {
 
     /// Related words as a wrap of tappable chips; the + adds one straight to 我的單字.
     private func wordGrid(_ title: String, _ entries: [DictEntry]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        // the chips stay put once picked, so one that was just added shows a check instead of its +
+        let mine = Set(library.filter(\.inMyWords).map(\.term))
+        return VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.app(.subheadline, .bold))
             FlowLayout(spacing: 8, lineSpacing: 8) {
                 ForEach(entries) { e in
@@ -561,8 +563,10 @@ struct WordDetailView: View {
                             Text(e.w).font(.app(.subheadline, .bold))
                             Text(e.zh.first ?? "").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        Button { Library.add(e, in: ctx) } label: { LIcon("plus").font(.app(.caption, .bold)) }.accessibilityLabel("加入我的單字")
-                            .buttonStyle(.plain).foregroundStyle(.tint)
+                        let added = mine.contains(e.w)
+                        Button { if !added { Library.add(e, in: ctx) } } label: { LIcon(added ? "checkmark" : "plus").font(.app(.caption, .bold)) }
+                            .accessibilityLabel(added ? "已加入我的單字" : "加入我的單字")
+                            .buttonStyle(.plain).foregroundStyle(added ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tint))
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Color.cardFill))
