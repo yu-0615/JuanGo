@@ -176,7 +176,7 @@ struct OnboardingView: View {
     @ViewBuilder private var bottomBar: some View {
         HStack(spacing: 10) {
             if page > 0 {
-                Button { back() } label: { LIcon("chevron.left").font(.app(.headline)) }
+                Button { back() } label: { LIcon("chevron.left").font(.app(.headline)) }.accessibilityLabel("上一步")
                     .buttonStyle(PillButtonStyle()).frame(width: 64)
             }
             switch page {

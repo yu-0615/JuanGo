@@ -116,6 +116,7 @@ struct ExploreTab: View {
         } label: {
             LIcon(levels.isEmpty && posFilter == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill")
         }
+        .accessibilityLabel("篩選")
     }
 
     private var tipBanner: some View {
@@ -229,6 +230,7 @@ struct ExploreCard: View {
                 Button(action: onList) { LIcon("folder.badge.plus").font(.app(.title3)) }
                     .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 52))
                     .frame(width: 64)
+                    .accessibilityLabel("加入清單")
                 Button(action: onToggle) {
                     Label(isSaved ? "從我的單字移除" : "收進我的單字", pulso: isSaved ? "bookmark.slash" : "bookmark.fill")
                 }

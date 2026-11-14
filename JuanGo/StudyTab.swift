@@ -440,6 +440,7 @@ struct SessionSetupView: View {
                         .glassEffect(.regular.interactive(), in: .circle)
                 }
                 .foregroundStyle(.primary)
+                .accessibilityLabel("關閉")
             }
             .padding(.top, 8)
             Picker("", selection: $smart) { Text("自動安排").tag(true); Text("手動挑選").tag(false) }.pickerStyle(.segmented)
@@ -597,6 +598,7 @@ struct SessionView: View {
                             .glassEffect(.regular.interactive(), in: .circle)
                     }
                     .foregroundStyle(.primary)
+                    .accessibilityLabel("結束練習")
                     progressTrack
                     Menu {
                         Button("學習規則", pulso: "questionmark.circle") { showRules = true }
@@ -607,6 +609,7 @@ struct SessionView: View {
                             .glassEffect(.regular.interactive(), in: .circle)
                     }
                     .foregroundStyle(.primary)
+                    .accessibilityLabel("更多")
                 }
                 HStack(alignment: .firstTextBaseline) {
                     Text(engine.current?.type.rawValue ?? title).font(.app(.title3, .bold))
@@ -838,6 +841,7 @@ struct FlashcardQuestion: View {
                     if !word.ipa.isEmpty { Text("/\(word.ipa)/").foregroundStyle(.secondary) }
                 }.font(.app(.subheadline))
             }
+            .accessibilityLabel(word.ipa.isEmpty ? "念出來" : "念出來，音標 \(word.ipa)")
             .buttonStyle(.plain)
             if back {
                 Divider().padding(.vertical, 4)
@@ -949,6 +953,7 @@ struct ChoiceQuestion: View {
                     LIcon(word.favorite ? "heart.fill" : "heart")
                 }
                 .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
+                .accessibilityLabel(word.favorite ? "取消喜歡" : "喜歡")
                 Spacer()
                 if let picked, picked != correct {
                     Button("下一題") { onGrade(.again) }
@@ -990,6 +995,7 @@ struct ChoiceQuestion: View {
                 LIcon("speaker.wave.3.fill").font(.app(size: 44)).frame(width: 110, height: 110)
                     .background(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous).fill(Color.themeAccent.opacity(0.12)))
             }.buttonStyle(.plain).foregroundStyle(.tint)
+            .accessibilityLabel("再聽一次")
             Text(type == .listenZh ? "聽發音，選出中文意思" : "聽發音，選出正確的英文").font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
@@ -1106,6 +1112,7 @@ struct SpellingQuestion: View {
                     LIcon(word.favorite ? "heart.fill" : "heart")
                 }
                 .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
+                .accessibilityLabel(word.favorite ? "取消喜歡" : "喜歡")
                 Spacer()
                 if checked == false {
                     Button("下一題") { onGrade(nearMiss ? .unsure : .again) }

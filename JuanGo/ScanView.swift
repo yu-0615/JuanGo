@@ -510,6 +510,7 @@ struct ScanView: View {
                 Button {
                     withAnimation(.snappy) { zoom = 1; baseZoom = 1; pan = .zero; basePan = .zero }; moveMode = false
                 } label: { LIcon("arrow.down.right.and.arrow.up.left").padding(8) }
+                .accessibilityLabel("還原縮放")
             }
         }
         .font(.app(.caption, .bold))

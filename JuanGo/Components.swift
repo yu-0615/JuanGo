@@ -101,7 +101,7 @@ struct TappableSentence: View {
 struct SpeakButton: View {
     let text: String
     var body: some View {
-        Button { Speech.say(text) } label: { LIcon("speaker.wave.2.fill") }
+        Button { Speech.say(text) } label: { LIcon("speaker.wave.2.fill") }.accessibilityLabel("念出來")
             .buttonStyle(.plain)
             .foregroundStyle(.tint)
     }
@@ -128,7 +128,7 @@ struct Toast: View {
                     .font(.app(.subheadline, .bold)).foregroundStyle(.tint)
             }.buttonStyle(.plain)
             Spacer()
-            Button(action: onClose) { LIcon("xmark").font(.app(.subheadline, .bold)) }.buttonStyle(.plain)
+            Button(action: onClose) { LIcon("xmark").font(.app(.subheadline, .bold)) }.buttonStyle(.plain).accessibilityLabel("關閉")
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
@@ -352,7 +352,7 @@ struct EditWordSheet: View {
                     }
                     HStack {
                         TextField("新增自己的意思", text: $custom)
-                        Button { addCustom() } label: { LIcon("plus.circle.fill").font(.app(.title2)) }
+                        Button { addCustom() } label: { LIcon("plus.circle.fill").font(.app(.title2)) }.accessibilityLabel("新增這個意思")
                             .disabled(custom.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
                 }
@@ -419,7 +419,7 @@ struct MasteryCard: View {
             HStack {
                 Text("熟練階梯").font(.app(.headline, .bold))
                 Spacer()
-                Button { showInfo = true } label: { LIcon("questionmark.circle") }.buttonStyle(.borderless).foregroundStyle(.secondary)
+                Button { showInfo = true } label: { LIcon("questionmark.circle") }.accessibilityLabel("說明").buttonStyle(.borderless).foregroundStyle(.secondary)
             }
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<6, id: \.self) { i in

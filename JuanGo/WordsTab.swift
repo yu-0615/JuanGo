@@ -319,6 +319,7 @@ struct ListWordsView: View {
                         Button { if !saved { Library.add(e, in: ctx) } } label: {
                             LIcon(saved ? "checkmark.circle.fill" : "plus.circle.fill").font(.app(.title2))
                         }.buttonStyle(.plain).foregroundStyle(saved ? Color.green : .themeAccent)
+                        .accessibilityLabel(saved ? "已加入我的單字" : "加入我的單字")
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { lookup = LookupTerm(term: e.w) }
@@ -497,6 +498,7 @@ struct WordDetailView: View {
                     }
                     Button("刪除單字", pulso: "trash", role: .destructive) { confirmDelete = true }
                 } label: { LIcon("ellipsis") }
+                .accessibilityLabel("更多")
             }
         }
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
@@ -537,7 +539,7 @@ struct WordDetailView: View {
                             Text(e.w).font(.app(.subheadline, .bold))
                             Text(e.zh.first ?? "").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        Button { Library.add(e, in: ctx) } label: { LIcon("plus").font(.app(.caption, .bold)) }
+                        Button { Library.add(e, in: ctx) } label: { LIcon("plus").font(.app(.caption, .bold)) }.accessibilityLabel("加入我的單字")
                             .buttonStyle(.plain).foregroundStyle(.tint)
                     }
                     .padding(.horizontal, 12).padding(.vertical, 8)
