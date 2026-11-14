@@ -150,6 +150,7 @@ struct RulesSheet: View {
                     rule("lightbulb", "提示", "拼字時補上下一個字母。用了提示答對算不確定。")
                     rule("tortoise", "慢速再聽", "聽力題用較慢的速度再念一次。")
                     rule("exclamationmark.circle", "差一點", "拼錯一個字母算不確定，不算不會。")
+                    rule("keyboard", "再打一次", "拼錯後照著正確拼法打一遍，成績仍照第一次。")
                 }
             }.listRowBackground(Color.cardFill) }.themedBackground()
             .navigationTitle("學習規則").navigationBarTitleDisplayMode(.inline)
