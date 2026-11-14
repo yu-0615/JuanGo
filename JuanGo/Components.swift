@@ -61,6 +61,8 @@ struct TappableSentence: View {
                 if let i = Int(url.lastPathComponent), tokens.indices.contains(i) { onTap(tokens[i].word) }
                 return .handled
             })
+            // VoiceOver would read a cloze's "____" as a run of underscores
+            .accessibilityLabel(sentence.replacingOccurrences(of: "____", with: "空格"))
     }
 
     /// Tokens that are the word itself, found the same way the cloze finds it (studied for study, a phrase
