@@ -63,11 +63,29 @@ struct TappableSentence: View {
             })
     }
 
+    /// Tokens that are the word itself, found the same way the cloze finds it (studied for study, a phrase
+    /// with sth in the middle): "keep the project alive" marks keep and alive, not the project.
+    private var keyTokens: Set<Int> {
+        guard !highlight.isEmpty, let p = WordMatch.pattern(for: highlight),
+              let re = try? NSRegularExpression(pattern: p, options: .caseInsensitive) else { return [] }
+        let ns = sentence as NSString
+        guard let m = re.firstMatch(in: sentence, range: NSRange(location: 0, length: ns.length)) else { return [] }
+        let gaps = (1..<max(1, m.numberOfRanges)).map { m.range(at: $0) }.filter { $0.location != NSNotFound }
+        var keys = Set<Int>(), at = 0
+        for (i, raw) in sentence.split(separator: " ").enumerated() {
+            let r = ns.range(of: String(raw), range: NSRange(location: at, length: ns.length - at))
+            at = r.location + r.length
+            if NSIntersectionRange(r, m.range).length > 0, !gaps.contains(where: { NSIntersectionRange(r, $0).length > 0 }) { keys.insert(i) }
+        }
+        return keys
+    }
+
     private var attributed: AttributedString {
         var out = AttributedString()
+        let keys = keyTokens
         for (i, t) in tokens.enumerated() {
             if i > 0 { out += AttributedString(" ") }
-            let isKey = !highlight.isEmpty && t.word.lowercased().hasPrefix(highlight.lowercased())
+            let isKey = keys.contains(i)
             var run = AttributedString(t.text)
             if !t.word.isEmpty { run.link = URL(string: "juango-word://word/\(i)") }
             run[AttributeScopes.SwiftUIAttributes.ForegroundColorAttribute.self] = .themeAccent
