@@ -105,6 +105,8 @@ struct ProfileTab: View {
                             .buttonStyle(.plain)
                             .disabled(future)
                             .frame(maxWidth: .infinity)
+                            .accessibilityLabel("\(d.formatted(.dateTime.month().day().locale(.zh)))，\(n == 0 ? "沒有練習" : "練了 \(n) 個字")")
+                            .accessibilityAddTraits(cal.isDate(d, inSameDayAs: chosen) ? .isSelected : [])
                         }
                     }
                 }
