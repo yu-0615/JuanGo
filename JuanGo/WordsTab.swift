@@ -20,6 +20,7 @@ struct WordsTab: View {
     @State private var showSettings = false
     @State private var moveSheet = false
     @State private var debugWord: Word?
+    @State private var confirmMerge = false
 
     var body: some View {
         NavigationStack {
@@ -133,6 +134,8 @@ struct WordsTab: View {
                     .frame(maxHeight: .infinity)
             } else {
                 List { Group {
+                    let dups = search.isEmpty && !selecting ? scanDuplicates : []
+                    if !dups.isEmpty { duplicateNotice(dups) }
                     if sort == .newest || sort == .oldest {
                         let groups = dayGroups
                         ForEach(groups.days, id: \.self) { day in
@@ -152,6 +155,58 @@ struct WordsTab: View {
                 .autocorrectionDisabled()
             }
         }
+    }
+
+    /// Scanned words with phonetics glued on whose clean spelling is saved too ("accuracy takjoresi" beside "accuracy").
+    private var scanDuplicates: [(junk: Word, keep: Word)] {
+        let byTerm = Dictionary(words.map { ($0.term, $0) }, uniquingKeysWith: { a, _ in a })
+        return words.compactMap { w in
+            let clean = GlossaryParser.cleanTerm(w.term)
+            guard clean != w.term, let keep = byTerm[clean] else { return nil }
+            return (w, keep)
+        }
+        .sorted { $0.junk.term < $1.junk.term }
+    }
+
+    private func duplicateNotice(_ dups: [(junk: Word, keep: Word)]) -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("\(dups.count) 個掃描時黏到音標的重複字", pulso: "doc.on.doc")
+                    .font(.app(.headline)).foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(dups, id: \.junk.persistentModelID) { d in
+                        Text("\(d.junk.term) → \(d.keep.term)").font(.app(.subheadline)).foregroundStyle(.secondary)
+                    }
+                }
+                Button("合併到正確的字") { confirmMerge = true }
+                    .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 44, glass: true))
+                    // on the button, so the confirmation points at it rather than at the top of the screen
+                    .confirmationDialog("合併 \(dups.count) 個重複字？", isPresented: $confirmMerge, titleVisibility: .visible) {
+                        Button("合併並刪除重複的 \(dups.count) 筆", role: .destructive) { merge(dups) }
+                        Button("取消", role: .cancel) {}
+                    } message: {
+                        Text("清單、收藏、中文意思和練習紀錄會移到正確的字上，再刪掉黏到音標的那一筆。")
+                    }
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    private func merge(_ dups: [(junk: Word, keep: Word)]) {
+        for (junk, keep) in dups {
+            keep.inMyWords = keep.inMyWords || junk.inMyWords
+            keep.favorite = keep.favorite || junk.favorite
+            for l in junk.lists where !keep.lists.contains(where: { $0.persistentModelID == l.persistentModelID }) { keep.lists.append(l) }
+            for m in junk.meanings where !keep.meanings.contains(m) { keep.meanings.append(m) }
+            if junk.srsLevel > keep.srsLevel {
+                keep.srsLevel = junk.srsLevel; keep.dueDate = junk.dueDate; keep.lastReviewed = junk.lastReviewed
+            }
+            keep.reviewCount += junk.reviewCount
+            let old = junk.term, new = keep.term
+            for log in (try? ctx.fetch(FetchDescriptor<ReviewLog>(predicate: #Predicate { $0.term == old }))) ?? [] { log.term = new }
+            ctx.delete(junk)
+        }
+        try? ctx.save()
     }
 
     private func row(_ w: Word) -> some View {
