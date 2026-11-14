@@ -76,11 +76,13 @@ struct OnboardingView: View {
                 Text(test.revealed ? w.zh.prefix(2).joined(separator: " · ") : " ")
                     .font(.app(.title3, .semibold)).foregroundStyle(.secondary)
                 Text(test.revealed ? "原本知道這個意思嗎？" : " ").font(.app(.caption)).foregroundStyle(.secondary)
+                // same order and colours as the grade buttons in a round (不會 left, 會 right), with the dark ink
+                // on the pale fills that those use; white text on them was hard to read
                 HStack(spacing: 12) {
+                    Button("不會") { answer(0) }.buttonStyle(PillButtonStyle(fill: .againPink, foreground: .againInk))
+                    Button("不確定") { answer(0.5) }.buttonStyle(PillButtonStyle(fill: .unsureYellow, foreground: .unsureInk))
                     Button(test.revealed ? "確認" : "會") { answer(test.revealed ? 1 : nil) }
-                        .buttonStyle(PillButtonStyle(fill: .knowGreen))
-                    Button("不確定") { answer(0.5) }.buttonStyle(PillButtonStyle(fill: .unsureYellow))
-                    Button("不會") { answer(0) }.buttonStyle(PillButtonStyle(fill: .againPink))
+                        .buttonStyle(PillButtonStyle(fill: .knowGreen, foreground: .knowInk))
                 }
                 .padding(.horizontal, 20)
             }
