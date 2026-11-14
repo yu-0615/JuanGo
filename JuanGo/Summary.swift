@@ -182,6 +182,8 @@ extension Grade {
     var tint: Color { switch self { case .good: .knowGreen; case .unsure: .unsureYellow; case .again: .againPink } }
     /// Strong version used in the score ring and legends.
     var ring: Color { switch self { case .good: .green.opacity(0.75); case .unsure: .orange; case .again: .themeAccent } }
+    /// Readable text colour for the grade (the same inks as the grade buttons).
+    var ink: Color { switch self { case .good: .knowInk; case .unsure: .unsureInk; case .again: .againInk } }
 }
 
 struct HistoryView: View {
@@ -205,8 +207,10 @@ struct HistoryView: View {
                                 Text(l.term).font(.app(.headline))
                                 if l.wasNew { Text("新字").font(.app(.caption2, .bold)).foregroundStyle(.tint) }
                                 Spacer()
-                                Text(["不會", "不確定", "會"][l.result]).font(.app(.subheadline))
-                                    .foregroundStyle([Color.red, .orange, .green][l.result])
+                                // a result out of range (synced from a newer version, say) shows nothing rather than crashing
+                                if let g = Grade(rawValue: l.result) {
+                                    Text(g.label).font(.app(.subheadline, .semibold)).foregroundStyle(g.ink)
+                                }
                                 Text(l.date.formatted(.dateTime.hour().minute().locale(.zh))).font(.app(.caption)).foregroundStyle(.secondary)
                             }
                             }
