@@ -318,7 +318,7 @@ struct LevelTest {
     var previous: [(DictEntry, Double)] = []
     var didAdvanced = false
 
-    init(words: [String]) { self.words = words.compactMap(Dictionary_.lookup) }
+    @MainActor init(words: [String]) { self.words = words.compactMap(Dictionary_.lookup) }
 
     var current: DictEntry? { index < words.count ? words[index] : nil }
 
@@ -327,7 +327,7 @@ struct LevelTest {
         guard !answers.isEmpty else { return }
         answers.removeLast(); index -= 1; revealed = false
     }
-    mutating func startAdvanced() {
+    @MainActor mutating func startAdvanced() {
         previous = Array(zip(words, answers))
         words = LevelTest.advanced.compactMap(Dictionary_.lookup)
         index = 0; answers = []; revealed = false; didAdvanced = true

@@ -362,7 +362,7 @@ final class ExampleStore {
             + "\nUse the word \"\(e.w)\" itself in the sentence (an ending like -s, -ed or -ing is fine, a different word of the same family is not)."
         for attempt in 0..<2 {
             // greedy and capped: a short sentence comes back noticeably faster; the retry samples for a different one
-            let options = attempt == 0 ? GenerationOptions(sampling: .greedy, maximumResponseTokens: 160)
+            let options = attempt == 0 ? GenerationOptions(samplingMode: .greedy, maximumResponseTokens: 160)
                                        : GenerationOptions(maximumResponseTokens: 160)
             let s = attempt == 0 ? session : makeSession()
             // streamed, so the card can show the sentence word by word instead of a spinner for several seconds

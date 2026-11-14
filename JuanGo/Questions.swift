@@ -389,6 +389,8 @@ struct SpellingQuestion: View {
     @State private var typing = false
     /// letters filled in with 提示; any hint makes a right answer 不確定, more than half of the word 不會
     @State private var hints = 0
+    /// the width the letter boxes wrap in, measured (UIScreen.main is deprecated, and wrong in split view)
+    @State private var areaWidth: CGFloat = 360
 
     /// The meaning on top, then one box per letter (first and last letter shown) that the answer is typed into.
     var body: some View {
@@ -458,6 +460,7 @@ struct SpellingQuestion: View {
             .frame(minHeight: 46)
         }
         .padding(.top, 12).padding(.bottom, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { areaWidth = $0 }
         .onAppear { if listen { Speech.say(word.term) } }
         // the keyboard comes up by itself, so the answer can be typed right away
         .task { try? await Task.sleep(for: .milliseconds(350)); typing = true }
@@ -473,7 +476,7 @@ struct SpellingQuestion: View {
     private var letterBoxes: some View {
         let t = Array(word.term)
         let matched = checked != nil ? Self.matchedLetters(of: word.term, in: text) : []
-        let width = UIScreen.main.bounds.width - 40
+        let width = areaWidth
         // index ranges of the words, split at spaces
         var words: [Range<Int>] = [], from = 0
         for k in 0...t.count where k == t.count || t[k] == " " {
