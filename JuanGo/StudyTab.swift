@@ -392,7 +392,11 @@ struct StudyFlow: View {
                 }
                 engine = SessionEngine(words: words, types: QType(rawValue: String(m.dropFirst(2))).map { [$0] }, listening: false)
                 phase = .running
-            } else if m == "summary" { lastRound = 2; phase = .summary }
+            } else if m == "summary" {
+                // a few of the round's words with mixed grades, to look at the results list
+                lastResults = zip(request.words.prefix(4), [Grade.good, .again, .unsure, .good]).map { RoundResult(word: $0, grade: $1) }
+                lastRound = lastResults.count; phase = .summary
+            }
             else if m == "streak" { phase = .streak }
         }
         #endif
@@ -1347,6 +1351,7 @@ struct SummaryView: View {
     var onAgain: () -> Void
     var onDone: () -> Void
     @Environment(AppSettings.self) private var settings
+    @State fileprivate var detail: Word?
 
     var body: some View {
         let left = max(0, settings.dailyGoal - stats.newToday)
@@ -1380,15 +1385,17 @@ struct SummaryView: View {
                         }
                     }.card()
                 }
+                // the words come before the badges: which ones were missed is what's worth a second look
+                if !results.isEmpty { resultsCard }
                 Text("成就").font(.app(.title3, .bold))
                 HStack(alignment: .top) {
                     ForEach(BadgeKind.all) { k in BadgeMedal(kind: k, value: BadgeKind.value(k.id, stats: stats), size: 52).frame(maxWidth: .infinity) }
                 }
-                if !results.isEmpty { resultsCard }
             }
             .padding(.horizontal, 20).padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
+        .sheet(item: $detail) { w in NavigationStack { WordDetailView(word: w) } }
         .safeAreaInset(edge: .bottom) {
             HStack(spacing: 12) {
                 Button("結束", action: onDone).buttonStyle(PillButtonStyle(height: 54)).frame(width: 110)
@@ -1416,17 +1423,26 @@ extension SummaryView {
                         .background(Capsule().fill(g.tint)) }
                 }
             }
-            ForEach(results) { r in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(r.word.term).font(.app(.headline))
-                        Text(r.word.primaryMeaning).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
+            // missed words first, then unsure, then known; a row opens the word's page
+            let order: [Grade: Int] = [.again: 0, .unsure: 1, .good: 2]
+            let sorted = results.enumerated().sorted { (order[$0.element.grade] ?? 3, $0.offset) < (order[$1.element.grade] ?? 3, $1.offset) }.map(\.element)
+            ForEach(sorted) { r in
+                Button { detail = r.word } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(r.word.term).font(.app(.headline)).foregroundStyle(.primary)
+                            Text(r.word.primaryMeaning).font(.app(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Text(levelNames[max(0, min(5, r.word.srsLevel))]).font(.app(.caption, .bold)).foregroundStyle(.tint)
+                        RoundedRectangle(cornerRadius: 3).fill(r.grade.ring).frame(width: 12, height: 12)
+                            .accessibilityLabel(r.grade.label)
+                        LIcon("chevron.right").font(.app(.footnote, .semibold)).foregroundStyle(.tertiary)
                     }
-                    Spacer()
-                    Text(levelNames[max(0, min(5, r.word.srsLevel))]).font(.app(.caption, .bold)).foregroundStyle(.tint)
-                    RoundedRectangle(cornerRadius: 3).fill(r.grade.ring).frame(width: 12, height: 12)
+                    .contentShape(Rectangle())
                 }
-                if r.id != results.last?.id { Divider() }
+                .buttonStyle(.plain)
+                if r.id != sorted.last?.id { Divider() }
             }
         }
         .card()
