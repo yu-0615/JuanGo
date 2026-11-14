@@ -214,7 +214,11 @@ struct ChoiceQuestion: View {
                 .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
                 .accessibilityLabel(word.favorite ? "取消喜歡" : "喜歡")
                 Spacer()
-                if let picked, picked != correct {
+                if picked == nil {
+                    // rather than guessing: a lucky guess would count as 會 and push the word days away
+                    Button("不知道") { picked = ""; Speech.say(word.term) }
+                        .buttonStyle(PillButtonStyle(height: 46)).frame(width: 110)
+                } else if let picked, picked != correct {
                     Button("下一題") { onGrade(.again) }
                         .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
                 }
@@ -229,7 +233,7 @@ struct ChoiceQuestion: View {
         }
         .sheet(item: $lookup) { WordConfirmSheet(term: $0.term) }
         .sensoryFeedback(trigger: picked) { _, new in
-            guard settings.haptics, let new else { return nil }
+            guard settings.haptics, let new, !new.isEmpty else { return nil }
             return new == correct ? .success : .error
         }
     }
