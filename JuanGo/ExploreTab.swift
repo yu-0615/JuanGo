@@ -48,7 +48,8 @@ struct ExploreTab: View {
             .padding(.top, 6).padding(.bottom, 14)
             .navigationTitle(deck.rawValue).navigationBarTitleDisplayMode(.inline)
             .themedBackground()
-            .overlay(alignment: .top) { if !settings.exploreTipsDone && !feed.isEmpty { tipBanner } }
+            // above the cards rather than over them: at large text sizes the banner covered the word
+            .safeAreaInset(edge: .top, spacing: 0) { if !settings.exploreTipsDone && !feed.isEmpty { tipBanner } }
             .toolbar {
                 ToolbarItem(placement: .principal) { deckMenu }
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -181,6 +182,45 @@ struct ExploreCard: View {
     @State private var pop = false
     private var examples: ExampleStore { .shared }
 
+    /// Headword, meanings and example. Centred on the card; scrolls when it doesn't fit (large text sizes),
+    /// so the tags above and the buttons below stay put instead of being pushed off the card.
+    @ViewBuilder private var middle: some View {
+        Text(entry.w).font(.app(size: 44, .bold)).minimumScaleFactor(0.5).lineLimit(1)
+        HStack(spacing: 8) {
+            SpeakButton(text: entry.w)
+            if settings.exploreShowIPA && !entry.ipa.isEmpty { Text("/\(entry.ipa)/").foregroundStyle(.secondary) }
+    }
+    .font(.app(.subheadline))
+    Text(entry.zh.prefix(3).joined(separator: "；")).font(.app(.title2, .bold)).lineLimit(2)
+    VStack(alignment: .leading, spacing: 6) {
+        if let ex = examples.example(for: entry) {
+            TappableSentence(sentence: ex.en, highlight: entry.w, font: .app(.body, .medium), onTap: onLookup)
+            if settings.showTranslation { Text(ex.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+        } else if let p = examples.partial(for: entry) {
+            // streaming in from the on-device model
+            Text(p.en).font(.app(.body, .medium))
+            if settings.showTranslation && !p.zh.isEmpty { Text(p.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
+        } else if examples.isGenerating(entry) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("The teacher discussed the issue of recycling with the whole class.")
+                Text("老師與全班同學討論了回收的問題。").font(.app(.subheadline))
+            }
+            .redacted(reason: .placeholder)
+            .phaseAnimator([0.35, 0.8]) { v, p in v.opacity(p) } animation: { _ in .easeInOut(duration: 0.8) }
+        } else if !entry.def.isEmpty {
+            TappableSentence(sentence: entry.def, highlight: "", font: .app(.subheadline), onTap: onLookup)
+                .foregroundStyle(.secondary)
+        }
+        if let alt = entry.alt, !alt.isEmpty {
+            Text("也寫作：\(alt.joined(separator: ", "))").font(.app(.caption)).foregroundStyle(.secondary)
+        }
+    }
+    .padding(12)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
+    .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
+    }
+
     /// A dictionary-entry card: level and part of speech on top, a serif headword, meanings, then the example in a quote block.
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -190,42 +230,11 @@ struct ExploreCard: View {
                 Spacer()
                 if isSaved { Label("已收藏", pulso: "bookmark.fill").font(.app(.caption, .bold)).foregroundStyle(.tint) }
             }
-            Spacer(minLength: 0)
-            Text(entry.w).font(.app(size: 44, .bold)).minimumScaleFactor(0.5).lineLimit(1)
-            HStack(spacing: 8) {
-                SpeakButton(text: entry.w)
-                if settings.exploreShowIPA && !entry.ipa.isEmpty { Text("/\(entry.ipa)/").foregroundStyle(.secondary) }
+            ViewThatFits(in: .vertical) {
+                VStack(alignment: .leading, spacing: 14) { Spacer(minLength: 0); middle; Spacer(minLength: 0) }
+                ScrollView { VStack(alignment: .leading, spacing: 14) { middle }.frame(maxWidth: .infinity, alignment: .leading) }
+                    .scrollIndicators(.hidden)
             }
-            .font(.app(.subheadline))
-            Text(entry.zh.prefix(3).joined(separator: "；")).font(.app(.title2, .bold)).lineLimit(2)
-            VStack(alignment: .leading, spacing: 6) {
-                if let ex = examples.example(for: entry) {
-                    TappableSentence(sentence: ex.en, highlight: entry.w, font: .app(.body, .medium), onTap: onLookup)
-                    if settings.showTranslation { Text(ex.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
-                } else if let p = examples.partial(for: entry) {
-                    // streaming in from the on-device model
-                    Text(p.en).font(.app(.body, .medium))
-                    if settings.showTranslation && !p.zh.isEmpty { Text(p.zh).font(.app(.subheadline)).foregroundStyle(.secondary) }
-                } else if examples.isGenerating(entry) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("The teacher discussed the issue of recycling with the whole class.")
-                        Text("老師與全班同學討論了回收的問題。").font(.app(.subheadline))
-                    }
-                    .redacted(reason: .placeholder)
-                    .phaseAnimator([0.35, 0.8]) { v, p in v.opacity(p) } animation: { _ in .easeInOut(duration: 0.8) }
-                } else if !entry.def.isEmpty {
-                    TappableSentence(sentence: entry.def, highlight: "", font: .app(.subheadline), onTap: onLookup)
-                        .foregroundStyle(.secondary)
-                }
-                if let alt = entry.alt, !alt.isEmpty {
-                    Text("也寫作：\(alt.joined(separator: ", "))").font(.app(.caption)).foregroundStyle(.secondary)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Radius.md).fill(Color.themeAccent.opacity(0.06)))
-            .overlay(alignment: .leading) { Rectangle().fill(Color.themeAccent).frame(width: 3).padding(.vertical, 8) }
-            Spacer(minLength: 0)
             HStack(spacing: 10) {
                 Button(action: onList) { LIcon("folder.badge.plus").font(.app(.title3)) }
                     .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 52))
