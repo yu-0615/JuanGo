@@ -72,7 +72,7 @@ nonisolated enum GlossaryParser {
 
     /// "放棄；拋棄 2." → ["放棄", "拋棄"]; "藝術形式 *5" → ["藝術形式"]
     static func meaningList(_ raw: String) -> [String] {
-        return unique(raw.components(separatedBy: CharacterSet(charactersIn: "；;，,／/"))
+        return unique(raw.components(separatedBy: CharacterSet(charactersIn: "；;，,／/：:"))
             .map { tidy(stripMarks($0).replacingOccurrences(of: #"[\s\d.)、､(（]+$"#, with: "", options: .regularExpression)) }
             .map { $0.trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: "。.、"))) }
             .filter { $0.range(of: #"\p{Han}"#, options: .regularExpression) != nil })

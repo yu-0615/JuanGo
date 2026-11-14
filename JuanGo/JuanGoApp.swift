@@ -119,8 +119,11 @@ struct MainTabs: View {
         let terms = Set(words.map(\.term))
         var changed = false
         for w in words {
-            let meanings = w.meanings.map(GlossaryParser.tidy).filter { !$0.isEmpty }
-            if meanings != w.meanings { w.meanings = meanings; changed = true }
+            let meanings = w.meanings   // a colon between two meanings ("重要性:意義") is a separator, like ；
+                .flatMap { $0.components(separatedBy: CharacterSet(charactersIn: ":：")) }
+                .map { GlossaryParser.tidy($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let deduped = meanings.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+            if deduped != w.meanings { w.meanings = deduped; changed = true }
             let fixed = GlossaryParser.cleanTerm(w.term)
             guard fixed != w.term, !terms.contains(fixed) else { continue }
             let old = w.term
