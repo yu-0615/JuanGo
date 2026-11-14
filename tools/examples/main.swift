@@ -59,7 +59,7 @@ let plainInstructions = """
             var blocked = false
             for attempt in 0..<2 where result == nil && !blocked {
                 let s = LanguageModelSession(instructions: instructions)
-                let opt = attempt == 0 ? GenerationOptions(sampling: .greedy, maximumResponseTokens: 120) : GenerationOptions(maximumResponseTokens: 120)
+                let opt = attempt == 0 ? GenerationOptions(samplingMode: .greedy, maximumResponseTokens: 120) : GenerationOptions(maximumResponseTokens: 120)
                 do {
                     let r = try await s.respond(to: prompt, generating: GeneratedExample.self, options: opt).content
                     let en = r.sentence.trimmingCharacters(in: .whitespacesAndNewlines), zh = cleanZh(r.translation)
