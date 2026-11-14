@@ -338,6 +338,7 @@ struct ListWordsView: View {
     @State private var shareResult: String?
     @State private var shareCodeValue: String?
     @State private var practice: StudyRequest?
+    @State private var query = ""
 
     var body: some View {
         let have = Set(words.map(\.term))   // once, not a scan of every saved word for each of the deck's rows
@@ -387,6 +388,7 @@ struct ListWordsView: View {
             Button("好", role: .cancel) {}
         } message: { Text(shareResult ?? "") }
         .fullScreenCover(item: $practice) { StudyFlow(request: $0) }
+        .modifier(DeckSearch(on: isDeck, query: $query))
         .toolbar {
             if !routeWords.isEmpty {
                 // practise the list from here, not only from 主頁 › 我的清單
@@ -425,12 +427,17 @@ struct ListWordsView: View {
         }
     }
     private var entries: [DictEntry] {
-        switch route {
+        let all: [DictEntry] = switch route {
         case .deck(let d): Dictionary_.entries(deck: Deck(rawValue: d) ?? .basic)
         case .level(let lv): Dictionary_.entries(level: lv)
         default: []
         }
+        // finding one word among a deck's thousands: English from the start of the word, or any Chinese meaning
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return all }
+        return all.filter { $0.w.lowercased().hasPrefix(q) || $0.zh.contains { $0.contains(q) } }
     }
+    private var isDeck: Bool { if case .deck = route { true } else if case .level = route { true } else { false } }
     private var routeWords: [Word] {
         switch route {
         case .myWords: words.filter(\.inMyWords).sorted { $0.addedAt > $1.addedAt }
@@ -647,4 +654,18 @@ func dueText(_ due: Date) -> String {
     let cal = Calendar.current
     let d = cal.dateComponents([.day], from: cal.startOfDay(for: .now), to: cal.startOfDay(for: due)).day ?? 0
     return d <= 0 ? "今天" : d == 1 ? "明天" : d == 2 ? "後天" : "\(d) 天後"
+}
+
+/// Search for a built-in deck's page only (a saved list is short enough to scroll).
+private struct DeckSearch: ViewModifier {
+    let on: Bool
+    @Binding var query: String
+    func body(content: Content) -> some View {
+        if on {
+            content.searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "搜尋英文或中文")
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+        } else {
+            content
+        }
+    }
 }
