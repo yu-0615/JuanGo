@@ -141,7 +141,7 @@ struct ImportTab: View {
                         Text(e.w).font(.app(.headline)).foregroundStyle(.primary)
                         Text(e.zh.first ?? "").foregroundStyle(.secondary).lineLimit(1)
                         Spacer()
-                        if Library.word(e.w, in: ctx) != nil { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
+                        if Library.word(e.w, in: ctx) != nil { LIcon("checkmark.circle.fill").foregroundStyle(.green).accessibilityLabel("已收藏") }
                     }
                 }
             }

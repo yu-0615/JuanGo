@@ -62,6 +62,7 @@ struct OnboardingView: View {
                         HStack { Text(name); if on { LIcon("checkmark") } }
                     }
                     .buttonStyle(PillButtonStyle(fill: on ? .themeAccent : nil, foreground: on ? .onAccent : nil))
+                    .accessibilityAddTraits(on ? .isSelected : [])
             }
             .padding(.horizontal, 20)
         }
@@ -239,6 +240,7 @@ struct ThemeGrid: View {
                     .overlay(RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
                         .strokeBorder(selection == t.id ? Color.primary : .clear, lineWidth: 2))
                 }.buttonStyle(.plain)
+                .accessibilityAddTraits(selection == t.id ? .isSelected : [])
         }
     }
 }

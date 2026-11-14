@@ -246,6 +246,7 @@ struct SessionSetupView: View {
                             .frame(maxWidth: .infinity, minHeight: 44)
                         }
                         .buttonStyle(ChoiceTileStyle(selected: on))
+                        .accessibilityAddTraits(on ? .isSelected : [])
                 }
             }
         }

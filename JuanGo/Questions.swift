@@ -193,7 +193,7 @@ struct ChoiceQuestion: View {
                             }
                         }
                         Spacer()
-                        if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
+                        if picked != nil && o == correct { LIcon("checkmark.circle.fill").foregroundStyle(.green).accessibilityLabel("正確答案") }
                         else if picked == o { LIcon("xmark.circle.fill").foregroundStyle(Color.themeAccent) }
                     }
                     .padding(.horizontal, 12)

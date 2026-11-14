@@ -124,7 +124,7 @@ struct Toast: View {
     var onClose: () -> Void
     var body: some View {
         HStack {
-            LIcon("checkmark.circle.fill").foregroundStyle(.green).font(.app(.title3))
+            LIcon("checkmark.circle.fill").foregroundStyle(.green).font(.app(.title3)).accessibilityHidden(true)
             Button { action?() } label: {
                 HStack(spacing: 4) { Text(text); if action != nil { LIcon("chevron.right") } }
                     .font(.app(.subheadline, .bold)).foregroundStyle(.tint)

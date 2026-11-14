@@ -727,7 +727,7 @@ struct ScanView: View {
                         }
                         Spacer()
                         if let e { Text(levelLabel(e.lv)).font(.app(.caption, .bold)).foregroundStyle(.secondary) }
-                        if saved.contains(key) { LIcon("checkmark.circle.fill").foregroundStyle(.green) }
+                        if saved.contains(key) { LIcon("checkmark.circle.fill").foregroundStyle(.green).accessibilityLabel("已收藏") }
                     }
                 }
                 .onDelete { selected.remove(atOffsets: $0) }
