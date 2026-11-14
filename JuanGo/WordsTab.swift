@@ -65,6 +65,7 @@ struct WordsTab: View {
             .navigationDestination(item: $debugWord) { WordDetailView(word: $0) }
             .task {   // simulator testing: SIMCTL_CHILD_JUANGO_WORD=reduce opens that word's page
                 if let t = ProcessInfo.processInfo.environment["JUANGO_WORD"] { debugWord = words.first { $0.term == t } }
+                if let q = ProcessInfo.processInfo.environment["JUANGO_SEARCH"] { search = q }   // JUANGO_SEARCH=keep alive
             }
             .navigationDestination(for: ListRoute.self) { ListWordsView(route: $0) }
             .alert("建立新清單", isPresented: $newList) {
@@ -93,7 +94,11 @@ struct WordsTab: View {
     private var filtered: [Word] {
         var ws = words
         if !search.isEmpty {
-            ws = ws.filter { $0.term.localizedCaseInsensitiveContains(search) || $0.meanings.contains { $0.contains(search) } }
+            // every word typed has to appear, in any order: "keep alive" finds "keep sth alive"
+            let parts = search.split(separator: " ").map(String.init)
+            ws = ws.filter { w in
+                parts.allSatisfy { p in w.term.localizedCaseInsensitiveContains(p) || w.meanings.contains { $0.contains(p) } }
+            }
         }
         switch sort {
         case .newest: ws.sort { $0.addedAt > $1.addedAt }
