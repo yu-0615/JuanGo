@@ -470,6 +470,7 @@ struct WordDetailView: View {
     @State private var editing = false
     @State private var confirmDelete = false
     @State private var confirmReset = false
+    @State private var confirmDictMeaning = false
 
     /// Picked once when the page opens: as a computed property it reshuffled on every redraw (tapping ♡,
     /// showing the translation, an example saved in the background) and the chips changed under the finger.
@@ -558,6 +559,9 @@ struct WordDetailView: View {
                     .tint(word.favorite ? .pink : nil)
                 Menu {
                     Button("編輯詳細資料", pulso: "square.and.pencil") { editing = true }
+                    if dictMeanings != nil {
+                        Button("改用字典的解釋", pulso: "book") { confirmDictMeaning = true }
+                    }
                     Button("重設學習進度", pulso: "arrow.counterclockwise") { confirmReset = true }
                     Button("刪除單字", pulso: "trash", role: .destructive) { confirmDelete = true }
                 } label: { LIcon("ellipsis") }
@@ -585,9 +589,22 @@ struct WordDetailView: View {
         .confirmationDialog("刪除「\(word.term)」？", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("刪除", role: .destructive) { dismiss(); Library.remove(word, in: ctx) }
         } message: { Text("這個字的學習進度會一起刪除；每天的練習紀錄會保留。") }
+        .confirmationDialog("改用字典的解釋？", isPresented: $confirmDictMeaning, titleVisibility: .visible) {
+            Button("改用") { if let d = dictMeanings { word.meanings = d; try? ctx.save() } }
+        } message: {
+            Text("目前：\(word.meanings.joined(separator: "、"))\n字典：\((dictMeanings ?? []).joined(separator: "、"))")
+        }
         .confirmationDialog("重設「\(word.term)」的學習進度？", isPresented: $confirmReset, titleVisibility: .visible) {
             Button("重設", role: .destructive) { word.srsLevel = 0; word.dueDate = nil; word.reviewCount = 0; try? ctx.save() }
         } message: { Text("這個字會回到「未學」，之後當作新字重新練習。") }
+    }
+
+    /// The dictionary's meanings when they differ from the saved copy (the dictionary gets corrected; a saved
+    /// word keeps its own, which the user may have edited, until they choose to take the dictionary's).
+    private var dictMeanings: [String]? {
+        guard let d = Dictionary_.lookup(word.term), d.w.lowercased() == word.term.lowercased(), !d.zh.isEmpty,
+              d.zh != word.meanings else { return nil }
+        return d.zh
     }
 
     private var synonyms: [DictEntry] {
