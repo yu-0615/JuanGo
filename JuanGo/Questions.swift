@@ -35,6 +35,7 @@ struct FlashcardQuestion: View {
                     }
             )
             .onTapGesture { withAnimation(.spring(duration: 0.5)) { flipped.toggle() } }
+            .accessibilityAction(named: "翻面") { flipped.toggle() }
             .padding(.top, 20)
             HStack(spacing: 20) {
                 Button(action: onUndo) { Label("復原", pulso: "arrow.uturn.backward") }.disabled(!canUndo)
