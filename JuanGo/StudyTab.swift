@@ -17,22 +17,34 @@ struct StudyTab: View {
 
     /// the home screen only shows today's count and the streak, which come from the logs alone
     private var stats: Stats { Stats(logs: logs, words: []) }
-    private var studyable: [Word] { words.filter { $0.inMyWords || !$0.lists.isEmpty } }
+
+    /// What the home screen shows, worked out once per redraw: these used to be computed properties that each
+    /// filtered every word again (six passes over the whole library on every redraw).
+    struct Home {
+        let studyable: [Word], due: [Word], newWords: [Word]
+        var nothingQueued: Bool { due.isEmpty && newWords.isEmpty }
+        init(words: [Word], newLeft: Int) {
+            studyable = words.filter { $0.inMyWords || !$0.lists.isEmpty }
+            due = studyable.filter(\.isDue)
+            newWords = Array(studyable.filter(\.isNew).sorted { $0.addedAt < $1.addedAt }.prefix(newLeft))
+        }
+    }
 
     var body: some View {
+        let h = Home(words: words, newLeft: newLeft)
         NavigationStack {
             List { Group {
                 Section {
-                    todayRing
-                    startButton.listRowSeparator(.hidden)
+                    todayRing(h)
+                    startButton(h).listRowSeparator(.hidden)
                 } header: {
                     Text(Date.now.formatted(.dateTime.month().day().weekday(.wide).locale(.zh)))
                 }
                 Section {
                     actionRow("自由練習", "沒學會的字隨機考", icon: { LIcon("infinity", size: 22).fontWeight(.semibold).foregroundStyle(Color.themeAccent) }) {
-                        flow = StudyRequest(title: "自由練習", words: studyable.filter { !$0.isMastered }.shuffled())
+                        flow = StudyRequest(title: "自由練習", words: h.studyable.filter { !$0.isMastered }.shuffled())
                     }
-                    .disabled(studyable.isEmpty)
+                    .disabled(h.studyable.isEmpty)
                     actionRow("學習紀錄", "每天練了哪些字", icon: { LIcon("calendar").font(.app(.title3)).foregroundStyle(.tint) }) {
                         showHistory = true
                     }
@@ -43,7 +55,7 @@ struct StudyTab: View {
                     listRow("喜歡", icon: "heart.fill", words: words.filter(\.favorite))
                     ForEach(lists) { l in listRow(l.name, icon: "folder.fill", words: l.words) }
                 }
-                Section { MasteryCard(distribution: Stats(logs: [], words: studyable).distribution, boxed: false) }
+                Section { MasteryCard(distribution: Stats(logs: [], words: h.studyable).distribution, boxed: false) }
                 Section {
                     deckRows
                 } header: {
@@ -72,15 +84,12 @@ struct StudyTab: View {
         }
     }
 
-    private var due: [Word] { studyable.filter(\.isDue) }
     private var newLeft: Int { max(0, settings.dailyGoal - stats.newToday) }
-    private var newWords: [Word] { Array(studyable.filter(\.isNew).sorted { $0.addedAt < $1.addedAt }.prefix(newLeft)) }
-    private var nothingQueued: Bool { due.isEmpty && newWords.isEmpty }
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
     /// Today's new words as a ring beside the day's numbers.
-    private var todayRing: some View {
+    private func todayRing(_ h: Home) -> some View {
         @Bindable var settings = settings
         let progress = Double(stats.newToday) / Double(max(1, settings.dailyGoal))
         // at accessibility text sizes the numbers go under the ring instead of wrapping beside it
@@ -99,7 +108,7 @@ struct StudyTab: View {
             }
             .frame(width: 112, height: 112)
             VStack(alignment: .leading, spacing: 12) {
-                statLine("arrow.triangle.2.circlepath", "待複習", "\(due.count) 個")
+                statLine("arrow.triangle.2.circlepath", "待複習", "\(h.due.count) 個")
                 Menu {
                     Picker("每日新字", selection: $settings.dailyGoal) {
                         ForEach([5, 10, 15, 20, 30, 50], id: \.self) { Text("\($0) 個").tag($0) }
@@ -115,17 +124,17 @@ struct StudyTab: View {
         .padding(.vertical, 8)
     }
 
-    private var startButton: some View {
+    private func startButton(_ h: Home) -> some View {
         VStack(spacing: 8) {
             Button {
-                if nothingQueued { onFindWords() } else { flow = StudyRequest(title: "今日學習", words: due + newWords) }
+                if h.nothingQueued { onFindWords() } else { flow = StudyRequest(title: "今日學習", words: h.due + h.newWords) }
             } label: {
-                Label(nothingQueued ? (newLeft > 0 ? "去探索找新字" : "今天都完成了") : "開始今日學習",
-                      pulso: nothingQueued ? (newLeft > 0 ? "sparkles" : "checkmark") : "play.fill")
+                Label(h.nothingQueued ? (newLeft > 0 ? "去探索找新字" : "今天都完成了") : "開始今日學習",
+                      pulso: h.nothingQueued ? (newLeft > 0 ? "sparkles" : "checkmark") : "play.fill")
             }
             .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, glass: true))
-            .disabled(nothingQueued && newLeft == 0)
-            if studyable.isEmpty {
+            .disabled(h.nothingQueued && newLeft == 0)
+            if h.studyable.isEmpty {
                 Text("先到「新增」或「探索」加入幾個單字吧。").font(.app(.caption)).foregroundStyle(.secondary)
             }
         }
