@@ -19,6 +19,8 @@ struct WordsTab: View {
     @State private var confirmMerge = false
     /// junk terms whose merge notice was turned down with 不用 (newline-separated)
     @AppStorage("dismissedDuplicates") private var dismissedDuplicates = ""
+    /// worked out when words are added or removed, not on every redraw (each word's spelling gets cleaned)
+    @State private var duplicates: [(junk: Word, keep: Word)] = []
 
     var body: some View {
         NavigationStack {
@@ -129,7 +131,7 @@ struct WordsTab: View {
                     .frame(maxHeight: .infinity)
             } else {
                 List { Group {
-                    let dups = search.isEmpty && !selecting ? scanDuplicates : []
+                    let dups = search.isEmpty && !selecting ? duplicates : []
                     if !dups.isEmpty { duplicateNotice(dups) }
                     if sort == .newest || sort == .oldest {
                         let groups = dayGroups
@@ -150,6 +152,7 @@ struct WordsTab: View {
                 .autocorrectionDisabled()
             }
         }
+        .task(id: "\(words.count)|\(dismissedDuplicates)") { duplicates = scanDuplicates }
     }
 
     /// Scanned words with phonetics glued on whose clean spelling is saved too ("accuracy takjoresi" beside "accuracy").

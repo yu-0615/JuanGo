@@ -17,13 +17,15 @@ struct ExploreTab: View {
 
     var body: some View {
         @Bindable var settings = settings
+        // looked up once per redraw: each card used to scan every saved word
+        let mine = Set(saved.filter(\.inMyWords).map(\.term))
         NavigationStack {
             // JuanGo deals the words as a horizontal deck: swipe sideways, with the neighbours peeking in.
             VStack(spacing: 12) {
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 12) {
                     ForEach(feed) { e in
-                        ExploreCard(entry: e, isSaved: isSaved(e),
+                        ExploreCard(entry: e, isSaved: mine.contains(e.w),
                                     onToggle: { toggle(e) },
                                     onList: { listTarget = e },
                                     onLookup: { lookup = LookupTerm(term: $0) })
