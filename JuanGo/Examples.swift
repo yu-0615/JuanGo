@@ -23,7 +23,8 @@ enum WordMatch {
     }
 
     // sth / sb stand for any few words: "harm to sth" matches "harm to the environment"
-    nonisolated static let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody"]
+    nonisolated static let placeholders: Set<String> = ["sth", "sth.", "sb", "sb.", "sb's", "someone", "something", "one's", "oneself", "somebody",
+                                                           "…", "...", "~", "sb/sth", "sth/sb"]   // keep … alive is keep sth alive
 
     /// What a match of `pattern(for:)` is replaced with in a cloze: the word's own words become one blank each
     /// run, and what stood for sth / sb stays, so "keep the project alive" reads "____ the project ____"
