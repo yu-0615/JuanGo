@@ -101,12 +101,24 @@ struct MainTabs: View {
         .tabBarMinimizeBehavior(.never)   // the tab bar always stays full size
         .task {
             migrateLevels()
+            stripMeaningMarks()
             ExampleStore.shared.container = ctx.container
             ExampleStore.shared.backfill((try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.example == "" }))) ?? [])
         }
     }
 
     @Environment(\.modelContext) private var ctx
+    /// Word-list scans used to keep textbook level marks in the meanings ("藝術形式 *5"); clean those up once.
+    private func stripMeaningMarks() {
+        guard let words = try? ctx.fetch(FetchDescriptor<Word>()) else { return }
+        var changed = false
+        for w in words where w.meanings.contains(where: { $0.range(of: "[*＊★☆※]", options: .regularExpression) != nil }) {
+            w.meanings = w.meanings.map(GlossaryParser.stripMarks).filter { !$0.isEmpty }
+            changed = true
+        }
+        if changed { try? ctx.save() }
+    }
+
     /// Words saved before v1.1 carry CEFR levels; move them onto the 大考 1–6 scale.
     private func migrateLevels() {
         guard let words = try? ctx.fetch(FetchDescriptor<Word>()) else { return }

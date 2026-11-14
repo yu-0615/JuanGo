@@ -70,12 +70,18 @@ nonisolated enum GlossaryParser {
         return found.count >= 3 && found.count * 2 >= bilingualRows ? found : []
     }
 
-    /// "放棄；拋棄 2." → ["放棄", "拋棄"]
+    /// "放棄；拋棄 2." → ["放棄", "拋棄"]; "藝術形式 *5" → ["藝術形式"]
     static func meaningList(_ raw: String) -> [String] {
-        let trimmed = raw.replacingOccurrences(of: #"[\s\d.)、(（]+$"#, with: "", options: .regularExpression)
+        let trimmed = stripMarks(raw).replacingOccurrences(of: #"[\s\d.)、(（]+$"#, with: "", options: .regularExpression)
         return unique(trimmed.components(separatedBy: CharacterSet(charactersIn: "；;，,／/"))
             .map { $0.trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: "。.、"))) }
             .filter { $0.range(of: #"\p{Han}"#, options: .regularExpression) != nil })
+    }
+
+    /// Textbooks flag a word's level or importance with marks like "*5", "★", "※"; they're not part of the meaning.
+    static func stripMarks(_ s: String) -> String {
+        s.replacingOccurrences(of: #"\s*[*＊★☆※]+\s*\d*"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
     }
 
     /// Joins OCR lines that sit on the same printed row (Vision often splits "pressure" and "壓力"
