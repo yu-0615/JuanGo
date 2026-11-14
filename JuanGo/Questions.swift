@@ -388,6 +388,8 @@ struct SpellingQuestion: View {
     @State private var text = ""
     @State private var checked: Bool?
     @State private var gaveUp = false
+    /// 再打一次 after a miss: typing the answer out once more, which still counts as the miss
+    @State private var retypeGrade: Grade?
     /// one letter off (a typo, a missed double letter): shown as 差一點 and graded 不確定 rather than 不會
     @State private var nearMiss = false
     @State private var typing = false
@@ -433,6 +435,9 @@ struct SpellingQuestion: View {
                       pulso: checked ? "checkmark.circle.fill" : nearMiss ? "exclamationmark.circle.fill" : "xmark.circle.fill")
                     .font(.app(.headline)).foregroundStyle(checked ? Color.knowInk : nearMiss ? Color.unsureInk : Color.themeAccent)
             } else {
+                if retypeGrade != nil {
+                    Text("照著拼一次：\(word.term)").font(.app(.headline)).foregroundStyle(.secondary)
+                }
                 HStack(spacing: 12) {
                     Button("想不起來", pulso: "questionmark") { gaveUp = true; checked = false; Speech.say(word.term) }
                         .buttonStyle(PillButtonStyle(foreground: .themeAccent, height: 50))
@@ -456,8 +461,16 @@ struct SpellingQuestion: View {
                 }
                 Spacer()
                 if checked == false {
-                    Button("下一題") { onGrade(nearMiss ? .unsure : .again) }
-                        .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 120)
+                    if retypeGrade == nil {
+                        // copying the right spelling out once fixes it better than reading it
+                        Button("再打一次") {
+                            retypeGrade = nearMiss ? .unsure : .again
+                            text = ""; checked = nil; hints = 0; typing = true
+                        }
+                        .buttonStyle(PillButtonStyle(height: 46)).frame(width: 110)
+                    }
+                    Button("下一題") { onGrade(retypeGrade ?? (nearMiss ? .unsure : .again)) }
+                        .buttonStyle(PillButtonStyle(fill: .themeAccent, foreground: .onAccent, height: 46, glass: true)).frame(width: 110)
                 }
             }
             .font(.app(.subheadline, .semibold)).foregroundStyle(.secondary)
@@ -533,7 +546,7 @@ struct SpellingQuestion: View {
         checked = ok
         Speech.say(word.term)
         let letters = word.term.filter(\.isLetter).count
-        let grade: Grade = hints == 0 ? .good : hints * 2 > letters ? .again : .unsure
+        let grade: Grade = retypeGrade ?? (hints == 0 ? .good : hints * 2 > letters ? .again : .unsure)
         if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(grade) } }
     }
 
