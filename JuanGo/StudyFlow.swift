@@ -205,7 +205,7 @@ struct SessionSetupView: View {
     private var smartPanel: some View {
         let review = words.filter { !$0.isNew }.count
         let fresh = words.count - review
-        let breakdown = Swift.Dictionary(grouping: words) { QType.smart(for: $0, listening: false) }
+        let breakdown = Swift.Dictionary(grouping: words) { QType.fitted(QType.smart(for: $0, listening: false), for: $0) }
         return VStack(spacing: 12) {
             if endless { endlessCard } else {
             VStack(alignment: .leading, spacing: 6) {

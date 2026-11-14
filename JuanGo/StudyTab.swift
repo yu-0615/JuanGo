@@ -246,6 +246,16 @@ enum QType: String, CaseIterable, Identifiable {
         default: return listening && Bool.random() ? .listenSpell : .spelling
         }
     }
+
+    /// The type a word is actually asked as (the round and the setup screen's breakdown both use this).
+    static func fitted(_ t: QType, for w: Word) -> QType {
+        var t = t
+        // a phrase with sth / sb / … in it isn't spelled out letter by letter (nobody types "sth" in a test):
+        // it's asked as the exam asks it, a cloze with its blanks, or 中翻英 when the example can't be used
+        if t == .spelling || t == .listenSpell, WordMatch.blankParts(for: w.term).joined(separator: " ") != w.term { t = .cloze }
+        if t == .cloze, w.clozeSentence == nil { t = .zhToEn }   // nothing to blank out in this word's example
+        return t
+    }
 }
 
 extension Word {
