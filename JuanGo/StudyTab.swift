@@ -378,8 +378,13 @@ struct StudyFlow: View {
             }
         }
         .animation(.easeInOut, value: phase)
-        // start writing example sentences while the round is being set up, so the first cards already have them
-        .onAppear { ExampleStore.shared.prepare(Array(order.words.prefix(6))) }
+        // start writing example sentences while the round is being set up, so the first cards already have them —
+        // but only once the cover has finished sliding up: prepare() saves cached sentences into the words and loads
+        // the language model, and doing that mid-animation re-renders the screen behind and makes the cover stutter
+        .task {
+            try? await Task.sleep(for: .milliseconds(500))
+            ExampleStore.shared.prepare(Array(order.words.prefix(6)))
+        }
         #if DEBUG
         .task {
             guard let m = ProcessInfo.processInfo.environment["JUANGO_STUDY"] else { return }
@@ -813,7 +818,7 @@ struct FlashcardQuestion: View {
                         .background(RoundedRectangle(cornerRadius: Radius.sm).fill(Color.themeAccent.opacity(0.12)))
                 }
                 Spacer()
-                Text(back ? "解釋" : "點一下翻面").font(.app(.caption2, .semibold)).foregroundStyle(.tertiary)
+                Text(back ? "解釋" : "點一下翻面").font(.app(.caption, .semibold)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
             Text(word.term).font(.app(size: back ? 36 : 46, .bold)).minimumScaleFactor(0.5).lineLimit(1)
