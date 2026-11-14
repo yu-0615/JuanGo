@@ -97,15 +97,15 @@ struct WordsTab: View {
         var ws = words
         if !search.isEmpty {
             // every word typed has to appear, in any order: "keep alive" finds "keep sth alive"
-            let parts = search.split(separator: " ").map(String.init)
+            let parts = search.replacingOccurrences(of: "’", with: "'").split(separator: " ").map(String.init)
             ws = ws.filter { w in
-                parts.allSatisfy { p in w.term.localizedCaseInsensitiveContains(p) || w.meanings.contains { $0.contains(p) } }
+                parts.allSatisfy { p in w.term.replacingOccurrences(of: "’", with: "'").localizedCaseInsensitiveContains(p) || w.meanings.contains { $0.contains(p) } }
             }
         }
         switch sort {
         case .newest: ws.sort { $0.addedAt > $1.addedAt }
         case .oldest: ws.sort { $0.addedAt < $1.addedAt }
-        case .alpha: ws.sort { $0.term < $1.term }
+        case .alpha: ws.sort { $0.term.localizedCaseInsensitiveCompare($1.term) == .orderedAscending }   // "Monday" among the m's
         case .level: ws.sort { ($0.srsLevel, $0.term) < ($1.srsLevel, $1.term) }
         }
         return ws
