@@ -344,13 +344,21 @@ struct ListWordsView: View {
     @State private var shareCodeValue: String?
     @State private var practice: StudyRequest?
     @State private var query = ""
+    // a deck's words not added yet, for picking the rest of a deck
+    #if DEBUG
+    @State private var onlyNew = ProcessInfo.processInfo.environment["JUANGO_ONLYNEW"] != nil
+    #else
+    @State private var onlyNew = false
+    #endif
 
     var body: some View {
         let have = Set(words.map(\.term))   // once, not a scan of every saved word for each of the deck's rows
         List { Group {
             switch route {
             case .deck, .level:
-                ForEach(entries) { e in
+                let shown = onlyNew ? entries.filter { !have.contains($0.w) } : entries
+                if onlyNew && shown.isEmpty { EmptyState(query.isEmpty ? "這個字庫的字都加入了" : "沒有未加入的字", icon: "checkmark.circle") }
+                ForEach(shown) { e in
                     let saved = have.contains(e.w)
                     HStack {
                         VStack(alignment: .leading) {
@@ -395,6 +403,13 @@ struct ListWordsView: View {
         .fullScreenCover(item: $practice) { StudyFlow(request: $0) }
         .modifier(DeckSearch(on: isDeck, query: $query))
         .toolbar {
+            if isDeck {
+                ToolbarItem {
+                    Button(onlyNew ? "顯示全部" : "只看未加入", pulso: onlyNew ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle") {
+                        withAnimation { onlyNew.toggle() }
+                    }
+                }
+            }
             if !routeWords.isEmpty {
                 // practise the list from here, not only from 主頁 › 我的清單
                 ToolbarItem {
