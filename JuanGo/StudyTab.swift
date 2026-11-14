@@ -545,7 +545,7 @@ struct SessionSetupView: View {
                 ForEach(QType.allCases.filter { breakdown[$0] != nil }) { t in
                     let n = breakdown[t]!.count
                     HStack {
-                        Text(t.rawValue).font(.app(.subheadline, .bold)).frame(width: 64, alignment: .leading)
+                        Text(t.rawValue).font(.app(.subheadline, .bold)).lineLimit(1).fixedSize().frame(minWidth: 64, alignment: .leading)
                         GeometryReader { g in
                             Capsule().fill(Color.themeAccent).frame(width: g.size.width * CGFloat(n) / CGFloat(max(1, words.count)))
                         }.frame(height: 6)
