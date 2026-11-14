@@ -136,6 +136,12 @@ struct StudyTab: View {
             .disabled(h.nothingQueued && newLeft == 0)
             if h.studyable.isEmpty {
                 Text("先到「新增」或「探索」加入幾個單字吧。").font(.app(.caption)).foregroundStyle(.secondary)
+            } else if h.nothingQueued {
+                // with today done, say what tomorrow holds
+                let cal = Calendar.current
+                let end = cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: .now)) ?? .distantFuture
+                let tomorrow = h.studyable.count { !$0.isNew && ($0.dueDate ?? .distantPast) < end }
+                if tomorrow > 0 { Text("明天有 \(tomorrow) 個字要複習").font(.app(.caption)).foregroundStyle(.secondary) }
             }
         }
         .padding(.bottom, 4)
