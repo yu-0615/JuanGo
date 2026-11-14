@@ -188,7 +188,9 @@ struct StudyTab: View {
         ForEach(decks) { d in
             let entries = Dictionary_.entries(deck: d)
             Button {
-                let picked = entries.filter { Library.word($0.w, in: ctx) == nil }.shuffled().prefix(settings.dailyGoal)
+                // one set of saved terms instead of a database lookup for each of the deck's (up to 6,000) words
+                let have = Set(words.map(\.term))
+                let picked = entries.filter { !have.contains($0.w.lowercased()) }.shuffled().prefix(settings.dailyGoal)
                 let ws = picked.map { Library.add($0, in: ctx) }
                 flow = StudyRequest(title: d.rawValue, words: ws)
             } label: {
