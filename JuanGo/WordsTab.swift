@@ -444,6 +444,7 @@ struct WordDetailView: View {
     @State private var showLists = false
     @State private var editing = false
     @State private var confirmDelete = false
+    @State private var confirmReset = false
 
     /// Picked once when the page opens: as a computed property it reshuffled on every redraw (tapping ♡,
     /// showing the translation, an example saved in the background) and the chips changed under the finger.
@@ -520,9 +521,7 @@ struct WordDetailView: View {
                     .tint(word.favorite ? .pink : nil)
                 Menu {
                     Button("編輯詳細資料", pulso: "square.and.pencil") { editing = true }
-                    Button("重設學習進度", pulso: "arrow.counterclockwise") {
-                        word.srsLevel = 0; word.dueDate = nil; word.reviewCount = 0; try? ctx.save()
-                    }
+                    Button("重設學習進度", pulso: "arrow.counterclockwise") { confirmReset = true }
                     Button("刪除單字", pulso: "trash", role: .destructive) { confirmDelete = true }
                 } label: { LIcon("ellipsis") }
                 .accessibilityLabel("更多")
@@ -549,6 +548,9 @@ struct WordDetailView: View {
         .confirmationDialog("刪除「\(word.term)」？", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("刪除", role: .destructive) { dismiss(); Library.remove(word, in: ctx) }
         } message: { Text("學習紀錄也會一併移除。") }
+        .confirmationDialog("重設「\(word.term)」的學習進度？", isPresented: $confirmReset, titleVisibility: .visible) {
+            Button("重設", role: .destructive) { word.srsLevel = 0; word.dueDate = nil; word.reviewCount = 0; try? ctx.save() }
+        } message: { Text("這個字會回到「未學」，之後當作新字重新練習。") }
     }
 
     private var synonyms: [DictEntry] {
