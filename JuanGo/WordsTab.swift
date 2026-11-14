@@ -337,6 +337,7 @@ struct ListWordsView: View {
     @State private var sharing = false
     @State private var shareResult: String?
     @State private var shareCodeValue: String?
+    @State private var practice: StudyRequest?
 
     var body: some View {
         List { Group {
@@ -384,8 +385,13 @@ struct ListWordsView: View {
             }
             Button("好", role: .cancel) {}
         } message: { Text(shareResult ?? "") }
+        .fullScreenCover(item: $practice) { StudyFlow(request: $0) }
         .toolbar {
             if !routeWords.isEmpty {
+                // practise the list from here, not only from 主頁 › 我的清單
+                ToolbarItem {
+                    Button("練習", pulso: "play.fill") { practice = StudyRequest(title: title, words: routeWords.shuffled()) }
+                }
                 ToolbarItem {
                     Menu {
                         Button("產生分享代碼") { Task { await shareCode() } }
