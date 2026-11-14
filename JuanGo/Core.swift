@@ -357,7 +357,8 @@ enum Reminders {
     /// One notification for each of the next two weeks instead of a single repeating one, so today's can be
     /// left out once the day's practice is done: a reminder after you've already studied is just noise.
     /// Re-scheduled every time the app goes to the background, so the two weeks keep rolling forward.
-    static func sync(_ s: AppSettings, studiedToday: Bool = false) {
+    /// `dueDates`: when the studied words come due, to say how many are waiting that day.
+    static func sync(_ s: AppSettings, studiedToday: Bool = false, dueDates: [Date] = []) {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: ["daily"] + (0..<14).map { "day\($0)" })
         guard s.reminderOn else { return }
@@ -372,7 +373,10 @@ enum Reminders {
                 if d == 0, studiedToday || at <= .now { continue }
                 let content = UNMutableNotificationContent()
                 content.title = "該複習單字囉"
-                content.body = "花幾分鐘把今天到期的字複習完，別讓剛學的字又忘光。"
+                let end = cal.date(byAdding: .day, value: 1, to: day) ?? day
+                let due = dueDates.count { $0 < end }
+                content.body = due > 0 ? "今天有 \(due) 個字到期，花幾分鐘複習完，別讓剛學的字又忘光。"
+                                       : "花幾分鐘把今天到期的字複習完，別讓剛學的字又忘光。"
                 content.sound = .default
                 let when = cal.dateComponents([.year, .month, .day, .hour, .minute], from: at)
                 try? await center.add(UNNotificationRequest(identifier: "day\(d)", content: content,

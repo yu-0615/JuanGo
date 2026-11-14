@@ -63,7 +63,9 @@ struct RootView: View {
                 // skip today's reminder when today's practice is already done
                 let start = Calendar.current.startOfDay(for: .now)
                 let n = (try? ctx.fetchCount(FetchDescriptor<ReviewLog>(predicate: #Predicate { $0.date >= start }))) ?? 0
-                Reminders.sync(settings, studiedToday: n > 0)
+                let due = ((try? ctx.fetch(FetchDescriptor<Word>(predicate: #Predicate { $0.dueDate != nil }))) ?? [])
+                    .filter { $0.inMyWords || !$0.lists.isEmpty }.compactMap(\.dueDate)
+                Reminders.sync(settings, studiedToday: n > 0, dueDates: due)
             }
             if p == .active, cloud.signedIn { Task { try? await cloud.sync(ctx) } }
         }
