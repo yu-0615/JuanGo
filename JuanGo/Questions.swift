@@ -353,6 +353,8 @@ struct SpellingQuestion: View {
     /// one letter off (a typo, a missed double letter): shown as 差一點 and graded 不確定 rather than 不會
     @State private var nearMiss = false
     @State private var typing = false
+    /// letters filled in with 提示; any hint makes a right answer 不確定, more than half of the word 不會
+    @State private var hints = 0
 
     /// The meaning on top, then one box per letter (first and last letter shown) that the answer is typed into.
     var body: some View {
@@ -385,7 +387,7 @@ struct SpellingQuestion: View {
                 .accessibilityLabel("拼出單字，已輸入 \(text.count) 個字母，共 \(word.term.count) 個")
                 .accessibilityAddTraits(.isButton)
             if let checked {
-                Label(checked ? "拼對了！" : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
+                Label(checked ? (hints > 0 ? "拼對了（用了 \(hints) 次提示）" : "拼對了！") : nearMiss ? "差一點！答案是 \(word.term)" : "答案是 \(word.term)",
                       pulso: checked ? "checkmark.circle.fill" : nearMiss ? "exclamationmark.circle.fill" : "xmark.circle.fill")
                     .font(.app(.headline)).foregroundStyle(checked ? Color.knowInk : nearMiss ? Color.unsureInk : Color.themeAccent)
             } else {
@@ -406,6 +408,10 @@ struct SpellingQuestion: View {
                 }
                 .foregroundStyle(word.favorite ? AnyShapeStyle(Color.themeAccent) : AnyShapeStyle(.secondary))
                 .accessibilityLabel(word.favorite ? "取消喜歡" : "喜歡")
+                if checked == nil {
+                    Button(action: hint) { Label("提示", pulso: "lightbulb") }
+                        .accessibilityHint("填入下一個字母")
+                }
                 Spacer()
                 if checked == false {
                     Button("下一題") { onGrade(nearMiss ? .unsure : .again) }
@@ -483,7 +489,21 @@ struct SpellingQuestion: View {
         nearMiss = !ok && answer.count >= 4 && Self.distance(typed, answer) == 1
         checked = ok
         Speech.say(word.term)
-        if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(.good) } }
+        let letters = word.term.filter(\.isLetter).count
+        let grade: Grade = hints == 0 ? .good : hints * 2 > letters ? .again : .unsure
+        if ok { Task { try? await Task.sleep(for: .seconds(0.8)); onGrade(grade) } }
+    }
+
+    /// Keeps what's typed right so far and adds the next letter (with any hyphen or space after it).
+    private func hint() {
+        let t = Array(word.term), typed = Array(text)
+        var k = 0
+        while k < typed.count, k < t.count, String(typed[k]).lowercased() == String(t[k]).lowercased() { k += 1 }
+        guard k < t.count else { return }
+        k += 1
+        while k < t.count, !t[k].isLetter { k += 1 }   // the boxes show these anyway
+        text = String(t[..<k]); hints += 1; typing = true
+        if k == t.count { check() }
     }
 
     /// Positions in `answer` that line up with what was typed (longest common subsequence), so a missed letter
