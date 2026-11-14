@@ -4,3 +4,9 @@ xcuserdata/
 *.ipa
 *.xcarchive
 *.docx
+夜間工作報告.md
+
+# example generator outputs
+tools/examples/gen
+tools/examples/log*.txt
+tools/examples/words-source.json

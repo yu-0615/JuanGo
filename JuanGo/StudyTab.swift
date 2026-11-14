@@ -379,13 +379,7 @@ struct StudyFlow: View {
             }
         }
         .animation(.easeInOut, value: phase)
-        // start writing example sentences while the round is being set up, so the first cards already have them —
-        // but only once the cover has finished sliding up: prepare() saves cached sentences into the words and loads
-        // the language model, and doing that mid-animation re-renders the screen behind and makes the cover stutter
-        .task {
-            try? await Task.sleep(for: .milliseconds(500))
-            ExampleStore.shared.prepare(Array(order.words.prefix(6)))
-        }
+
         #if DEBUG
         .task {
             guard let m = ProcessInfo.processInfo.environment["JUANGO_STUDY"] else { return }
@@ -488,6 +482,13 @@ struct SessionSetupView: View {
             // last time's count, if this list is big enough for it; otherwise the closest smaller one
             if savedLimit == -1 { limit = -1 }
             else if savedLimit > 0 { limit = drawOptions.last { $0 <= savedLimit } ?? 0 }
+        }
+        // start writing example sentences while the round is being set up, so the first cards already have them —
+        // in the order the round will actually ask them (due words first), and only once the cover has finished
+        // sliding up: prepare() saves cached sentences into the words, which mid-animation made the cover stutter
+        .task(id: limit) {
+            try? await Task.sleep(for: .milliseconds(500))
+            ExampleStore.shared.prepare(Array(words.prefix(6)))
         }
         .onChange(of: limit, initial: true) { _, n in
             // the words are already shuffled; keep that order within each group

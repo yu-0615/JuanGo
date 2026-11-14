@@ -114,9 +114,16 @@ final class ExampleStore {
         for w in words.reversed() where w.example.isEmpty {
             let key = Self.key(term: w.term, meanings: w.meanings)
             if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
+            if let b = Self.bundled(for: w, key: key) { w.example = b.en; w.exampleZh = b.zh; continue }
             request(Self.entry(for: w), urgent: true, key: key)
         }
         warmUp()
+    }
+
+    /// The sentence that ships with the dictionary, when the word is taught in the dictionary's own sense.
+    private static func bundled(for w: Word, key: String) -> Example? {
+        guard key == w.term, let d = Dictionary_.lookup(w.term), d.w == w.term, !d.ex.isEmpty else { return nil }
+        return Example(en: d.ex, zh: d.exZh)
     }
 
     /// What to write a saved word's sentence from: the word itself, in its own part of speech and meanings.
@@ -153,6 +160,7 @@ final class ExampleStore {
         for w in words where w.example.isEmpty {
             let key = Self.key(term: w.term, meanings: w.meanings)
             if let c = cache[key] { w.example = c.en; w.exampleZh = c.zh; continue }
+            if let b = Self.bundled(for: w, key: key) { w.example = b.en; w.exampleZh = b.zh; continue }
             request(Self.entry(for: w), priority: .background, key: key)
         }
         try? words.first?.modelContext?.save()
